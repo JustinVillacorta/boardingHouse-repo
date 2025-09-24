@@ -22,6 +22,16 @@ This project follows **MVC + Clean Architecture** principles:
   - Account lockout after failed attempts
   - Rate limiting for security
 
+- **Tenant Management**
+  - Complete tenant profile management
+  - Personal information tracking
+  - Emergency contact management
+  - Lease and rental information
+  - Room assignment and availability
+  - Status tracking (active, inactive, pending, terminated)
+  - Advanced search and filtering
+  - Statistics and reporting
+
 - **Security**
   - Helmet.js for security headers
   - CORS configuration
@@ -99,6 +109,19 @@ The server will start on `http://localhost:5000`
 - `GET /api/auth/validate-token` - Validate JWT token (authenticated)
 - `GET /api/auth/users` - Get all users (admin only)
 
+### Tenant Management Endpoints
+- `POST /api/tenants` - Create tenant profile
+- `GET /api/tenants` - Get all tenants (admin/staff only)
+- `GET /api/tenants/:id` - Get specific tenant
+- `PUT /api/tenants/:id` - Update tenant profile
+- `DELETE /api/tenants/:id` - Delete tenant (admin only)
+- `GET /api/tenants/me` - Get current tenant's profile
+- `PUT /api/tenants/me` - Update current tenant's profile
+- `GET /api/tenants/statistics` - Get tenant statistics (admin/staff only)
+- `GET /api/tenants/expiring-leases` - Get tenants with expiring leases (admin/staff only)
+- `GET /api/tenants/by-status/:status` - Get tenants by status (admin/staff only)
+- `PUT /api/tenants/:id/status` - Update tenant status (admin/staff only)
+
 ### Request Examples
 
 #### Register User
@@ -128,6 +151,36 @@ Content-Type: application/json
 #### Access Protected Route
 ```bash
 GET /api/auth/profile
+Authorization: Bearer your-jwt-token-here
+```
+
+#### Create Tenant Profile
+```bash
+POST /api/tenants
+Authorization: Bearer your-jwt-token-here
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "phoneNumber": "+1234567890",
+  "dateOfBirth": "1990-01-01",
+  "idType": "passport",
+  "idNumber": "P123456789",
+  "emergencyContact": {
+    "name": "Jane Doe",
+    "relationship": "Sister",
+    "phoneNumber": "+1234567891"
+  },
+  "roomNumber": "101",
+  "monthlyRent": 500,
+  "occupation": "Software Engineer"
+}
+```
+
+#### Get All Tenants (Admin/Staff Only)
+```bash
+GET /api/tenants?status=active&page=1&limit=10
 Authorization: Bearer your-jwt-token-here
 ```
 
@@ -162,6 +215,37 @@ Authorization: Bearer your-jwt-token-here
 }
 ```
 
+### Tenant Model
+```javascript
+{
+  userId: ObjectId (ref: User, required, unique)
+  firstName: String (required)
+  lastName: String (required)
+  phoneNumber: String (required)
+  dateOfBirth: Date (required)
+  idType: String (required, enum: passport/drivers_license/national_id/other)
+  idNumber: String (required)
+  emergencyContact: {
+    name: String (required)
+    relationship: String (required)
+    phoneNumber: String (required)
+  }
+  roomNumber: String (optional)
+  leaseStartDate: Date (optional)
+  leaseEndDate: Date (optional)
+  monthlyRent: Number (optional)
+  securityDeposit: Number (optional)
+  tenantStatus: String (enum: active/inactive/pending/terminated)
+  occupation: String (optional)
+  employer: String (optional)
+  monthlyIncome: Number (optional)
+  specialRequirements: String (optional)
+  notes: String (optional)
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
 ## 🛡️ Security Features
 
 - **Password Requirements**: Minimum 6 characters with uppercase, lowercase, and numbers
@@ -181,21 +265,26 @@ backend/
 │   │   ├── config.js
 │   │   └── database.js
 │   ├── controllers/
-│   │   └── authController.js
+│   │   ├── authController.js
+│   │   └── tenantController.js
 │   ├── middleware/
 │   │   ├── auth.js
 │   │   ├── errorHandler.js
 │   │   ├── rateLimiter.js
 │   │   └── validation.js
 │   ├── models/
-│   │   └── User.js
+│   │   ├── User.js
+│   │   └── Tenant.js
 │   ├── repositories/
-│   │   └── userRepository.js
+│   │   ├── userRepository.js
+│   │   └── tenantRepository.js
 │   ├── routes/
 │   │   ├── auth.js
+│   │   ├── tenants.js
 │   │   └── index.js
 │   ├── services/
-│   │   └── authService.js
+│   │   ├── authService.js
+│   │   └── tenantService.js
 │   ├── utils/
 │   │   ├── jwt.js
 │   │   └── response.js
@@ -229,12 +318,14 @@ pm2 start src/server.js --name "boarding-house-api"
 
 ## 📝 Next Steps
 
-After setting up authentication, you can extend the API by adding:
-- Tenant management endpoints
+Future enhancements to consider:
 - Room management endpoints
 - Payment tracking endpoints
 - Maintenance request endpoints
 - Notification system
+- File upload for documents
+- Reporting and analytics
+- Email notifications
 
 ## 🤝 Contributing
 

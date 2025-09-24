@@ -22,6 +22,11 @@ class AuthController {
 
       const { username, email, password, role } = req.body;
 
+      // Prevent tenant creation through auth endpoint
+      if (role === 'tenant') {
+        return sendError(res, 'Tenant accounts must be created through the tenant registration endpoint', 400);
+      }
+
       const result = await authService.register({
         username,
         email,
