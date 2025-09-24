@@ -140,7 +140,7 @@ TenantSchema.virtual('age').get(function () {
 });
 
 // Index for faster queries
-TenantSchema.index({ userId: 1 });
+// Note: userId already has unique index from schema definition
 TenantSchema.index({ tenantStatus: 1 });
 TenantSchema.index({ roomNumber: 1 });
 TenantSchema.index({ firstName: 1, lastName: 1 });

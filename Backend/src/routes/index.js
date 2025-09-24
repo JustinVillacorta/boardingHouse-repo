@@ -1,6 +1,8 @@
 const express = require('express');
 const authRoutes = require('./auth');
 const tenantRoutes = require('./tenants');
+const roomRoutes = require('./rooms');
+const paymentRoutes = require('./payments');
 
 const router = express.Router();
 
@@ -17,5 +19,7 @@ router.get('/health', (req, res) => {
 // API routes
 router.use('/auth', authRoutes);
 router.use('/tenants', tenantRoutes);
+router.use('/rooms', roomRoutes);
+router.use('/payments', paymentRoutes);
 
 module.exports = router;
