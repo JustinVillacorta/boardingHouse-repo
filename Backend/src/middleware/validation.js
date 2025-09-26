@@ -884,6 +884,70 @@ const validatePaymentSearch = [
     .withMessage('End date must be a valid date'),
 ];
 
+// Validation rules for report creation
+const validateReportCreate = [
+  body('tenant')
+    .optional()
+    .isMongoId()
+    .withMessage('Tenant must be a valid MongoDB ObjectId'),
+  
+  body('room')
+    .optional()
+    .isMongoId()
+    .withMessage('Room must be a valid MongoDB ObjectId'),
+  
+  body('type')
+    .isIn(['maintenance', 'complaint', 'other'])
+    .withMessage('Report type must be one of: maintenance, complaint, other'),
+  
+  body('title')
+    .isLength({ min: 5, max: 100 })
+    .withMessage('Title must be between 5 and 100 characters')
+    .trim(),
+  
+  body('description')
+    .isLength({ min: 10, max: 1000 })
+    .withMessage('Description must be between 10 and 1000 characters')
+    .trim(),
+  
+  body('roomNumber')
+    .optional()
+    .isString()
+    .withMessage('Room number must be a string'),
+];
+
+// Validation rules for report update
+const validateReportUpdate = [
+  body('type')
+    .optional()
+    .isIn(['maintenance', 'complaint', 'other'])
+    .withMessage('Report type must be one of: maintenance, complaint, other'),
+  
+  body('title')
+    .optional()
+    .isLength({ min: 5, max: 100 })
+    .withMessage('Title must be between 5 and 100 characters')
+    .trim(),
+  
+  body('description')
+    .optional()
+    .isLength({ min: 10, max: 1000 })
+    .withMessage('Description must be between 10 and 1000 characters')
+    .trim(),
+  
+  body('status')
+    .optional()
+    .isIn(['pending', 'in-progress', 'resolved', 'rejected'])
+    .withMessage('Status must be one of: pending, in-progress, resolved, rejected'),
+];
+
+// Validation rules for report status update
+const validateReportStatusUpdate = [
+  body('status')
+    .isIn(['pending', 'in-progress', 'resolved', 'rejected'])
+    .withMessage('Status must be one of: pending, in-progress, resolved, rejected'),
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -906,4 +970,8 @@ module.exports = {
   validatePaymentStatisticsQuery,
   validatePaymentHistoryQuery,
   validatePaymentSearch,
+  // Report validations
+  validateReportCreate,
+  validateReportUpdate,
+  validateReportStatusUpdate,
 };

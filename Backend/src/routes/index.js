@@ -3,6 +3,7 @@ const authRoutes = require('./auth');
 const tenantRoutes = require('./tenants');
 const roomRoutes = require('./rooms');
 const paymentRoutes = require('./payments');
+const reportRoutes = require('./reports');
 
 const router = express.Router();
 
@@ -21,5 +22,6 @@ router.use('/auth', authRoutes);
 router.use('/tenants', tenantRoutes);
 router.use('/rooms', roomRoutes);
 router.use('/payments', paymentRoutes);
+router.use('/reports', reportRoutes);
 
 module.exports = router;

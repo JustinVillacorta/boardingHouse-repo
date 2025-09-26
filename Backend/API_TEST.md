@@ -1123,3 +1123,346 @@ curl -X GET "http://localhost:5000/api/payments/search?query=refund&page=1&limit
   }
 }
 ```
+
+## Report Management Tests
+
+### 1. Create a report (tenant only - auto-detects tenant and room)
+```bash
+curl -X POST http://localhost:8000/api/reports \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TENANT_TOKEN_HERE" \
+  -d '{
+    "type": "complaint",
+    "title": "Broken AC",
+    "description": "The air conditioner in my room is not working properly."
+  }'
+```
+
+### 2. Create a report with explicit tenant/room IDs (admin/staff only)
+```bash
+curl -X POST http://localhost:8000/api/reports \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE" \
+  -d '{
+    "tenant": "TENANT_OBJECT_ID_HERE",
+    "room": "ROOM_OBJECT_ID_HERE",
+    "type": "maintenance",
+    "title": "Leaking faucet",
+    "description": "The bathroom faucet is leaking and needs repair."
+  }'
+```
+
+### 3. Get all reports (admin/staff only)
+```bash
+curl -X GET http://localhost:8000/api/reports \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+
+# With filters and pagination
+curl -X GET "http://localhost:8000/api/reports?status=pending&type=complaint&page=1&limit=10" \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+
+# Filter by status
+curl -X GET "http://localhost:8000/api/reports?status=in-progress" \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+
+# Filter by type
+curl -X GET "http://localhost:8000/api/reports?type=maintenance" \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+### 4. Get my reports (tenant only)
+```bash
+curl -X GET http://localhost:8000/api/reports/my \
+  -H "Authorization: Bearer TENANT_TOKEN_HERE"
+
+# With status filter
+curl -X GET "http://localhost:8000/api/reports/my?status=pending" \
+  -H "Authorization: Bearer TENANT_TOKEN_HERE"
+```
+
+### 5. Get specific report
+```bash
+curl -X GET http://localhost:8000/api/reports/REPORT_ID_HERE \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+### 6. Update report status (admin/staff only)
+```bash
+curl -X PUT http://localhost:8000/api/reports/REPORT_ID_HERE \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "in-progress"
+  }'
+```
+
+### 7. Update report with resolution (admin/staff only)
+```bash
+curl -X PUT http://localhost:8000/api/reports/REPORT_ID_HERE \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "resolved",
+    "description": "Updated description: Issue has been resolved. AC unit was repaired and is now working properly."
+  }'
+```
+
+### 8. Delete report (admin only)
+```bash
+curl -X DELETE http://localhost:8000/api/reports/REPORT_ID_HERE \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+## Expected Report Management Responses
+
+### Successful Report Creation (Tenant):
+```json
+{
+  "success": true,
+  "message": "Report created successfully",
+  "timestamp": "2025-09-26T03:46:33.506Z",
+  "data": {
+    "_id": "68d60c998cf2064c72357f2f",
+    "tenant": {
+      "_id": "68d608733ab2e17811218a32",
+      "userId": {
+        "_id": "68d608733ab2e17811218a30",
+        "username": "testtenant",
+        "email": "testtenant@boardinghouse.com",
+        "role": "tenant",
+        "isActive": true
+      },
+      "firstName": "John",
+      "lastName": "Doe",
+      "phoneNumber": "+1234567890"
+    },
+    "room": {
+      "_id": "68d608663ab2e17811218a2b",
+      "roomNumber": "101",
+      "roomType": "single",
+      "isAvailable": false,
+      "occupancyRate": 0,
+      "primaryPhoto": null,
+      "id": "68d608663ab2e17811218a2b"
+    },
+    "type": "complaint",
+    "title": "Broken AC",
+    "description": "The air conditioner in my room is not working properly.",
+    "status": "pending",
+    "submittedAt": "2025-09-26T03:46:33.502Z",
+    "createdAt": "2025-09-26T03:46:33.502Z",
+    "updatedAt": "2025-09-26T03:46:33.502Z",
+    "__v": 0,
+    "daysSinceSubmission": 1,
+    "id": "68d60c998cf2064c72357f2f"
+  }
+}
+```
+
+### Get All Reports Response (Admin/Staff):
+```json
+{
+  "success": true,
+  "message": "Reports retrieved successfully",
+  "data": [
+    {
+      "_id": "68d60c998cf2064c72357f2f",
+      "tenant": {
+        "_id": "68d608733ab2e17811218a32",
+        "firstName": "John",
+        "lastName": "Doe",
+        "phoneNumber": "+1234567890"
+      },
+      "room": {
+        "_id": "68d608663ab2e17811218a2b",
+        "roomNumber": "101",
+        "roomType": "single"
+      },
+      "type": "complaint",
+      "title": "Broken AC",
+      "description": "The air conditioner in my room is not working properly.",
+      "status": "pending",
+      "submittedAt": "2025-09-26T03:46:33.502Z",
+      "daysSinceSubmission": 1
+    }
+  ]
+}
+```
+
+### Get My Reports Response (Tenant):
+```json
+{
+  "success": true,
+  "message": "Your reports retrieved successfully",
+  "data": [
+    {
+      "_id": "68d60c998cf2064c72357f2f",
+      "type": "complaint",
+      "title": "Broken AC",
+      "description": "The air conditioner in my room is not working properly.",
+      "status": "pending",
+      "submittedAt": "2025-09-26T03:46:33.502Z",
+      "daysSinceSubmission": 1
+    }
+  ]
+}
+```
+
+### Successful Report Update:
+```json
+{
+  "success": true,
+  "message": "Report updated successfully",
+  "data": {
+    "_id": "68d60c998cf2064c72357f2f",
+    "tenant": {
+      "firstName": "John",
+      "lastName": "Doe"
+    },
+    "room": {
+      "roomNumber": "101",
+      "roomType": "single"
+    },
+    "type": "complaint",
+    "title": "Broken AC",
+    "description": "Updated description: Issue has been resolved. AC unit was repaired and is now working properly.",
+    "status": "resolved",
+    "submittedAt": "2025-09-26T03:46:33.502Z",
+    "updatedAt": "2025-09-26T04:15:22.123Z",
+    "daysSinceSubmission": 1
+  }
+}
+```
+
+### Successful Report Deletion:
+```json
+{
+  "success": true,
+  "message": "Report deleted successfully"
+}
+```
+
+### Report Validation Errors:
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "data": {
+    "errors": [
+      {
+        "type": "field",
+        "msg": "Type is required",
+        "path": "type",
+        "location": "body"
+      },
+      {
+        "type": "field",
+        "msg": "Title is required",
+        "path": "title",
+        "location": "body"
+      },
+      {
+        "type": "field",
+        "msg": "Description is required",
+        "path": "description",
+        "location": "body"
+      }
+    ]
+  }
+}
+```
+
+### Report Type Validation Error:
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "data": {
+    "errors": [
+      {
+        "type": "field",
+        "value": "invalid_type",
+        "msg": "Type must be one of: complaint, maintenance, suggestion, emergency",
+        "path": "type",
+        "location": "body"
+      }
+    ]
+  }
+}
+```
+
+### Report Status Validation Error:
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "data": {
+    "errors": [
+      {
+        "type": "field",
+        "value": "invalid_status",
+        "msg": "Status must be one of: pending, in-progress, resolved, rejected",
+        "path": "status",
+        "location": "body"
+      }
+    ]
+  }
+}
+```
+
+### Unauthorized Access Error:
+```json
+{
+  "success": false,
+  "message": "Access token is required",
+  "timestamp": "2025-09-26T03:47:20.986Z"
+}
+```
+
+### Insufficient Permissions Error:
+```json
+{
+  "success": false,
+  "message": "Insufficient permissions",
+  "timestamp": "2025-09-26T03:50:15.886Z"
+}
+```
+
+### Report Not Found Error:
+```json
+{
+  "success": false,
+  "message": "Report not found",
+  "timestamp": "2025-09-26T04:00:00.000Z"
+}
+```
+
+## Report Testing Notes
+
+### Authentication Requirements:
+- **Tenant Role**: Can create reports (auto-detects their tenant/room), view their own reports only
+- **Staff Role**: Can view all reports, update report status, cannot delete reports
+- **Admin Role**: Full access - view all reports, update status, delete reports, create reports for any tenant/room
+
+### Report Types:
+- `complaint` - General complaints about room or facility issues
+- `maintenance` - Maintenance requests for repairs or improvements  
+- `suggestion` - Suggestions for improvements
+- `emergency` - Emergency issues requiring immediate attention
+
+### Report Statuses:
+- `pending` - New report, awaiting review (default status)
+- `in-progress` - Report is being worked on
+- `resolved` - Issue has been resolved
+- `rejected` - Report was rejected or deemed invalid
+
+### Auto-Detection Logic:
+- When tenants create reports, the system automatically:
+  1. Finds their tenant profile based on the JWT token
+  2. Finds their assigned room from the tenant profile
+  3. Creates the report with these associations
+- Admin/staff can manually specify tenant and room IDs when creating reports
+
+### Virtual Fields:
+- `daysSinceSubmission` - Calculated field showing days since report was submitted
+- Populated tenant and room details in responses for better context

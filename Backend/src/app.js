@@ -56,6 +56,21 @@ app.get('/', (req, res) => {
         changePassword: 'PUT /api/auth/change-password',
         validateToken: 'GET /api/auth/validate-token',
         getAllUsers: 'GET /api/auth/users (admin only)',
+      },
+      reports: {
+        createReport: 'POST /api/reports',
+        getAllReports: 'GET /api/reports (admin/staff)',
+        getMyReports: 'GET /api/reports/my',
+        getReportById: 'GET /api/reports/:id',
+        updateReport: 'PUT /api/reports/:id',
+        deleteReport: 'DELETE /api/reports/:id (admin/staff)',
+        updateStatus: 'PUT /api/reports/:id/status (admin/staff)',
+        assignReport: 'PUT /api/reports/:id/assign (admin/staff)',
+        addComment: 'POST /api/reports/:id/comments',
+        markResolved: 'POST /api/reports/:id/resolve (admin/staff)',
+        getOverdue: 'GET /api/reports/overdue (admin/staff)',
+        getStatistics: 'GET /api/reports/statistics (admin/staff)',
+        bulkUpdate: 'PUT /api/reports/bulk/update (admin)',
       }
     }
   });

@@ -157,7 +157,8 @@ roomSchema.virtual('occupancyRate').get(function() {
 
 // Virtual for primary photo
 roomSchema.virtual('primaryPhoto').get(function() {
-  return this.photos.find(photo => photo.isPrimary) || this.photos[0];
+  if (!this.photos || !Array.isArray(this.photos)) return null;
+  return this.photos.find(photo => photo.isPrimary) || this.photos[0] || null;
 });
 
 // Indexes for better query performance
