@@ -1466,3 +1466,551 @@ curl -X DELETE http://localhost:8000/api/reports/REPORT_ID_HERE \
 ### Virtual Fields:
 - `daysSinceSubmission` - Calculated field showing days since report was submitted
 - Populated tenant and room details in responses for better context
+
+## Notification Management Tests
+
+### 1. Create notification (admin/staff only)
+```bash
+curl -X POST http://localhost:8000/api/notifications \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "payment_due",
+    "title": "Rent Payment Due",
+    "message": "Your monthly rent payment of $500 is due on March 1st, 2025.",
+    "user_id": "TENANT_USER_ID_HERE",
+    "priority": "high",
+    "expiresAt": "2025-03-10T00:00:00.000Z",
+    "metadata": {
+      "paymentAmount": 500,
+      "dueDate": "2025-03-01",
+      "roomNumber": "101"
+    }
+  }'
+```
+
+### 2. Create system alert notification for specific user
+```bash
+curl -X POST http://localhost:8000/api/notifications \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "system_alert",
+    "title": "Maintenance Schedule",
+    "message": "Building maintenance will be conducted on Sunday from 9 AM to 5 PM. Water supply may be interrupted.",
+    "user_id": "TENANT_USER_ID_HERE",
+    "priority": "medium",
+    "expiresAt": "2025-03-15T17:00:00.000Z"
+  }'
+```
+
+### 3. Get user's notifications (all authenticated users)
+```bash
+curl -X GET http://localhost:8000/api/notifications \
+  -H "Authorization: Bearer USER_TOKEN_HERE"
+```
+
+### 3a. Get all notifications (admin/staff only)
+```bash
+curl -X GET http://localhost:8000/api/notifications/all \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+### 3b. Get notification statistics
+```bash
+curl -X GET http://localhost:8000/api/notifications/stats \
+  -H "Authorization: Bearer USER_TOKEN_HERE"
+```
+
+
+
+### 4. Get specific notification
+```bash
+curl -X GET http://localhost:8000/api/notifications/NOTIFICATION_ID_HERE \
+  -H "Authorization: Bearer USER_TOKEN_HERE"
+```
+
+### 5. Mark notification as read
+```bash
+curl -X PUT http://localhost:8000/api/notifications/NOTIFICATION_ID_HERE/read \
+  -H "Authorization: Bearer USER_TOKEN_HERE"
+```
+
+### 6. Mark all notifications as read
+```bash
+curl -X PUT http://localhost:8000/api/notifications/mark-all-read \
+  -H "Authorization: Bearer USER_TOKEN_HERE"
+```
+
+
+
+### 7. Delete notification
+```bash
+curl -X DELETE http://localhost:8000/api/notifications/NOTIFICATION_ID_HERE \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+### 8. Broadcast notification to all users (admin only)
+```bash
+curl -X POST http://localhost:8000/api/notifications/broadcast \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "announcement",
+    "title": "Building Announcement",
+    "message": "The building will have scheduled maintenance this weekend. Please plan accordingly.",
+    "priority": "medium",
+    "expiresAt": "2025-03-20T00:00:00.000Z"
+  }'
+```
+
+### 9. Broadcast notification to specific roles (admin only)
+```bash
+curl -X POST http://localhost:8000/api/notifications/broadcast \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "system_alert",
+    "title": "Staff Meeting Reminder",
+    "message": "Monthly staff meeting scheduled for tomorrow at 2 PM in the conference room.",
+    "roles": ["staff"],
+    "priority": "medium",
+    "expiresAt": "2025-03-05T14:00:00.000Z"
+  }'
+```
+
+
+
+
+
+## Expected Notification Management Responses
+
+### Successful Notification Creation:
+```json
+{
+  "success": true,
+  "message": "Notification created successfully",
+  "timestamp": "2025-09-27T06:26:31.339Z",
+  "data": {
+    "id": "68d783970b08c2b49595afe7",
+    "userId": "68d608733ab2e17811218a30",
+    "title": "October Rent Reminder",
+    "message": "Your monthly rent of $500 is due on October 1st, 2025.",
+    "type": "payment_due",
+    "status": "unread",
+    "priority": "high",
+    "metadata": {},
+    "expiresAt": null,
+    "isExpired": null,
+    "createdBy": null,
+    "createdAt": "2025-09-27T06:26:31.338Z",
+    "updatedAt": "2025-09-27T06:26:31.338Z"
+  }
+}
+```
+
+### Get User Notifications Response:
+```json
+{
+  "success": true,
+  "message": "Notifications retrieved successfully",
+  "timestamp": "2025-09-27T06:27:19.556Z",
+  "data": {
+    "notifications": [
+      {
+        "id": "68d783ab0b08c2b49595afeb",
+        "userId": "68d61bc22817372ddff4bcee",
+        "user": {
+          "id": "68d61bc22817372ddff4bcee",
+          "username": "gago",
+          "email": "gago@email.com",
+          "role": "tenant"
+        },
+        "title": "Scheduled Maintenance",
+        "message": "Building maintenance will be performed on Sunday from 9 AM to 5 PM.",
+        "type": "system_alert",
+        "status": "unread",
+        "priority": "medium",
+        "metadata": {},
+        "expiresAt": "2025-10-15T17:00:00.000Z",
+        "isExpired": false,
+        "createdBy": "admin",
+        "createdAt": "2025-09-27T06:26:51.909Z",
+        "updatedAt": "2025-09-27T06:26:51.909Z"
+      }
+    ],
+    "total": 2
+  }
+}
+```
+
+### Successful Broadcast Response:
+```json
+{
+  "success": true,
+  "message": "Notification broadcast successfully",
+  "timestamp": "2025-09-27T03:45:30.789Z",
+  "data": {
+    "notification": {
+      "_id": "650f1a2b3c4d5e6f78901235",
+      "type": "announcement",
+      "title": "Building Announcement",
+      "message": "The building will have scheduled maintenance this weekend. Please plan accordingly.",
+      "priority": "medium",
+      "expiresAt": "2025-03-20T00:00:00.000Z"
+    },
+    "broadcastStats": {
+      "totalRecipients": 25,
+      "successfulDeliveries": 25,
+      "failedDeliveries": 0,
+      "targetRoles": ["tenant", "staff"],
+      "broadcastAt": "2025-09-27T03:45:30.789Z"
+    }
+  }
+}
+```
+
+### Notification Statistics Response:
+```json
+{
+  "success": true,
+  "message": "Notification statistics retrieved successfully",
+  "timestamp": "2025-09-27T06:29:32.674Z",
+  "data": {
+    "total": 1,
+    "unread": 1,
+    "read": 0,
+    "byType": [
+      {
+        "type": "system_alert",
+        "status": "unread",
+        "priority": "high"
+      }
+    ]
+  }
+}
+```
+
+
+
+## Dashboard Analytics Tests
+
+### 1. Get dashboard overview statistics (admin/staff only)
+```bash
+curl -X GET http://localhost:8000/api/dashboard/stats \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+### 2. Get room occupancy data (admin/staff only)
+```bash
+curl -X GET http://localhost:8000/api/dashboard/occupancy \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+### 3. Get payment statistics (admin/staff only)
+```bash
+curl -X GET http://localhost:8000/api/dashboard/payments \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+### 4. Get report statistics (admin/staff only)
+```bash
+curl -X GET http://localhost:8000/api/dashboard/reports \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+### 5. Get tenant statistics (admin/staff only)
+```bash
+curl -X GET http://localhost:8000/api/dashboard/tenants \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+### 6. Get room statistics (admin/staff only)
+```bash
+curl -X GET http://localhost:8000/api/dashboard/rooms \
+  -H "Authorization: Bearer ADMIN_TOKEN_HERE"
+```
+
+## Expected Dashboard Analytics Responses
+
+### Dashboard Overview Statistics:
+```json
+{
+  "success": true,
+  "message": "Dashboard statistics retrieved successfully",
+  "timestamp": "2025-09-27T03:40:40.838Z",
+  "data": {
+    "tenants": {
+      "total": 5,
+      "active": 5,
+      "inactive": 0,
+      "expiringLeases": 0
+    },
+    "rooms": {
+      "total": 4,
+      "occupied": 1,
+      "available": 3,
+      "maintenance": 0,
+      "occupancyRate": 25
+    },
+    "payments": {
+      "total": 0,
+      "paid": 0,
+      "pending": 0,
+      "overdue": 0,
+      "totalAmount": 0,
+      "thisMonthAmount": 0
+    },
+    "reports": {
+      "total": 12,
+      "pending": 11,
+      "inProgress": 0,
+      "resolved": 1,
+      "rejected": 0
+    },
+    "notifications": {
+      "total": 5,
+      "unread": 4,
+      "read": 1,
+      "byType": [
+        {
+          "type": "system_alert",
+          "status": "read",
+          "priority": "medium"
+        },
+        {
+          "type": "system_alert",
+          "status": "unread",
+          "priority": "high"
+        }
+      ]
+    },
+    "lastUpdated": "2025-09-27T03:40:40.838Z"
+  }
+}
+```
+
+### Room Occupancy Data:
+```json
+{
+  "success": true,
+  "message": "Room occupancy data retrieved successfully",
+  "timestamp": "2025-09-27T03:40:50.028Z",
+  "data": {
+    "totalRooms": 4,
+    "occupiedRooms": 1,
+    "availableRooms": 3,
+    "maintenanceRooms": 0,
+    "occupancyRate": 25,
+    "roomTypes": {
+      "single": {
+        "total": 4,
+        "occupied": 1,
+        "available": 3,
+        "maintenance": 0
+      }
+    },
+    "roomDetails": [
+      {
+        "roomId": "68d608663ab2e17811218a2b",
+        "roomNumber": "101",
+        "roomType": "single",
+        "capacity": 1,
+        "status": "available",
+        "monthlyRent": 500,
+        "tenant": {
+          "id": "68d608733ab2e17811218a32",
+          "name": "John Doe",
+          "phoneNumber": "+1234567890"
+        },
+        "createdAt": "2025-09-26T03:28:38.537Z",
+        "updatedAt": "2025-09-26T03:28:38.537Z"
+      }
+    ]
+  }
+}
+```
+
+### Payment Statistics:
+```json
+{
+  "success": true,
+  "message": "Payment statistics retrieved successfully",
+  "timestamp": "2025-09-27T03:40:24.760Z",
+  "data": {
+    "total": {
+      "count": 0,
+      "amount": 0
+    },
+    "thisMonth": {
+      "count": 0,
+      "amount": 0
+    },
+    "lastMonth": {
+      "count": 0,
+      "amount": 0
+    },
+    "thisYear": {
+      "count": 0,
+      "amount": 0
+    },
+    "byStatus": {
+      "paid": {
+        "count": 0,
+        "amount": 0
+      },
+      "pending": {
+        "count": 0,
+        "amount": 0
+      },
+      "overdue": {
+        "count": 0,
+        "amount": 0
+      }
+    },
+    "byMethod": {},
+    "monthlyTrends": [
+      {
+        "month": "Oct 2024",
+        "count": 0,
+        "amount": 0,
+        "paid": 0,
+        "pending": 0,
+        "overdue": 0
+      },
+      {
+        "month": "Nov 2024",
+        "count": 0,
+        "amount": 0,
+        "paid": 0,
+        "pending": 0,
+        "overdue": 0
+      }
+    ],
+    "overduePayments": []
+  }
+}
+```
+
+### Report Statistics:
+```json
+{
+  "success": true,
+  "message": "Report statistics retrieved successfully",
+  "timestamp": "2025-09-27T03:40:59.677Z",
+  "data": {
+    "total": 12,
+    "thisMonth": 12,
+    "byStatus": {
+      "pending": 11,
+      "in-progress": 0,
+      "resolved": 1,
+      "rejected": 0
+    },
+    "byType": {
+      "maintenance": 10,
+      "complaint": 2,
+      "other": 0
+    },
+    "averageResolutionTime": 0,
+    "priorityBreakdown": [],
+    "recentReports": [
+      {
+        "id": "68d60c6c8cf2064c72357f22",
+        "title": "Fixed virtual error test",
+        "type": "maintenance",
+        "status": "pending",
+        "submittedAt": "2025-09-26T03:45:48.350Z",
+        "tenantId": "68d608733ab2e17811218a32"
+      }
+    ],
+    "monthlyTrends": [
+      {
+        "month": "Apr 2025",
+        "total": 0,
+        "pending": 0,
+        "inProgress": 0,
+        "resolved": 0,
+        "rejected": 0
+      },
+      {
+        "month": "Sep 2025",
+        "total": 12,
+        "pending": 11,
+        "inProgress": 0,
+        "resolved": 1,
+        "rejected": 0
+      }
+    ]
+  }
+}
+```
+
+## Notification Testing Notes
+
+### Authentication Requirements:
+- **Tenant Role**: Can view their own notifications, mark as read
+- **Staff Role**: Can create notifications, view all notifications, cannot delete
+- **Admin Role**: Full access - create, view, delete, broadcast notifications
+
+### Notification Types:
+- `payment_due` - Payment due reminders
+- `system_alert` - System-wide alerts and maintenance notices
+- `announcement` - General announcements
+- `report_update` - Updates on submitted reports
+- `maintenance_alert` - Maintenance-related notifications
+
+### Notification Priorities:
+- `urgent` - Critical notifications requiring immediate attention
+- `high` - Important notifications
+- `medium` - Normal priority notifications
+- `low` - Informational notifications
+
+### Notification Statuses:
+- `unread` - New notification (default)
+- `read` - User has viewed the notification
+
+### API Endpoints Summary:
+- `POST /api/notifications` - Create notification (requires `user_id`, not `recipients`)
+- `GET /api/notifications` - Get user's own notifications
+- `GET /api/notifications/all` - Get all notifications (admin/staff only)
+- `GET /api/notifications/stats` - Get notification statistics
+- `GET /api/notifications/:id` - Get specific notification
+- `PUT /api/notifications/:id/read` - Mark notification as read
+- `PUT /api/notifications/mark-all-read` - Mark all user notifications as read
+- `DELETE /api/notifications/:id` - Delete notification
+- `POST /api/notifications/broadcast` - Broadcast to multiple users (use `roles` array)
+
+### Broadcast Notification Rules:
+- Use `roles: ["tenant"]` to target all tenant users
+- Use `roles: ["staff"]` to target all staff users
+- Use `roles: ["admin"]` to target all admin users
+- Use `userIds: ["id1", "id2"]` to target specific users
+- Admin role required for broadcast functionality
+
+### Field Requirements:
+- Individual notifications: `user_id` (single user ID)
+- Broadcast notifications: `roles` (array of role names) or `userIds` (array of user IDs)
+- All notifications: `type`, `title`, `message`, `priority`
+- Optional: `expiresAt`, `metadata` object for additional data
+
+### Dashboard Testing Notes
+
+### Authentication Requirements:
+- **Admin/Staff Role**: Full access to all dashboard analytics
+- **Tenant Role**: No access to dashboard endpoints
+
+### Available Analytics:
+- **Overview Stats**: General statistics across all entities
+- **Room Occupancy**: Detailed room occupancy data with tenant information
+- **Payment Stats**: Payment analytics with trends and status breakdown
+- **Report Stats**: Report analytics with status and type breakdown
+- **Tenant Stats**: Tenant-specific analytics
+- **Room Stats**: Room-specific analytics
+
+### Data Visualization Ready:
+All dashboard endpoints return data in formats suitable for:
+- Charts and graphs (monthly trends, status breakdowns)
+- KPI displays (totals, percentages, rates)
+- Detailed tables (room details, recent reports)
+- Progress indicators (occupancy rates, payment rates)

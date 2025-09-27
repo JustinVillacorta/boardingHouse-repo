@@ -107,6 +107,15 @@ class UserRepository {
       throw error;
     }
   }
+
+  // Find users by multiple roles
+  async findByRoles(roles) {
+    try {
+      return await User.find({ role: { $in: roles } });
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 module.exports = new UserRepository();

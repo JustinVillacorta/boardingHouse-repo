@@ -948,6 +948,115 @@ const validateReportStatusUpdate = [
     .withMessage('Status must be one of: pending, in-progress, resolved, rejected'),
 ];
 
+// Validation rules for notification creation
+const validateNotificationCreate = [
+  body('user_id')
+    .notEmpty()
+    .withMessage('User ID is required')
+    .isMongoId()
+    .withMessage('User ID must be a valid MongoDB ObjectId'),
+  
+  body('title')
+    .notEmpty()
+    .withMessage('Title is required')
+    .isLength({ max: 200 })
+    .withMessage('Title must be less than 200 characters')
+    .trim(),
+  
+  body('message')
+    .notEmpty()
+    .withMessage('Message is required')
+    .isLength({ max: 1000 })
+    .withMessage('Message must be less than 1000 characters')
+    .trim(),
+  
+  body('type')
+    .isIn(['payment_due', 'report_update', 'system_alert', 'maintenance', 'announcement', 'lease_reminder', 'other'])
+    .withMessage('Type must be one of: payment_due, report_update, system_alert, maintenance, announcement, lease_reminder, other'),
+  
+  body('priority')
+    .optional()
+    .isIn(['low', 'medium', 'high', 'urgent'])
+    .withMessage('Priority must be one of: low, medium, high, urgent'),
+  
+  body('metadata')
+    .optional()
+    .isObject()
+    .withMessage('Metadata must be an object'),
+  
+  body('expiresAt')
+    .optional()
+    .isISO8601()
+    .withMessage('Expires at must be a valid date')
+    .toDate(),
+];
+
+// Validation rules for notification broadcast
+const validateNotificationBroadcast = [
+  body()
+    .custom((value, { req }) => {
+      const { userIds, roles } = req.body;
+      
+      if (!userIds && !roles) {
+        throw new Error('Either userIds or roles must be provided');
+      }
+      
+      if (userIds && !Array.isArray(userIds)) {
+        throw new Error('UserIds must be an array');
+      }
+      
+      if (roles && !Array.isArray(roles)) {
+        throw new Error('Roles must be an array');
+      }
+      
+      return true;
+    }),
+  
+  body('userIds.*')
+    .optional()
+    .isMongoId()
+    .withMessage('Each user ID must be a valid MongoDB ObjectId'),
+  
+  body('roles.*')
+    .optional()
+    .isIn(['admin', 'staff', 'tenant'])
+    .withMessage('Each role must be one of: admin, staff, tenant'),
+  
+  body('title')
+    .notEmpty()
+    .withMessage('Title is required')
+    .isLength({ max: 200 })
+    .withMessage('Title must be less than 200 characters')
+    .trim(),
+  
+  body('message')
+    .notEmpty()
+    .withMessage('Message is required')
+    .isLength({ max: 1000 })
+    .withMessage('Message must be less than 1000 characters')
+    .trim(),
+  
+  body('type')
+    .isIn(['payment_due', 'report_update', 'system_alert', 'maintenance', 'announcement', 'lease_reminder', 'other'])
+    .withMessage('Type must be one of: payment_due, report_update, system_alert, maintenance, announcement, lease_reminder, other'),
+  
+  body('priority')
+    .optional()
+    .isIn(['low', 'medium', 'high', 'urgent'])
+    .withMessage('Priority must be one of: low, medium, high, urgent'),
+  
+  body('metadata')
+    .optional()
+    .isObject()
+    .withMessage('Metadata must be an object'),
+  
+  body('expiresAt')
+    .optional()
+    .isISO8601()
+    .withMessage('Expires at must be a valid date')
+    .toDate(),
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -974,4 +1083,7 @@ module.exports = {
   validateReportCreate,
   validateReportUpdate,
   validateReportStatusUpdate,
+  // Notification validations
+  validateNotificationCreate,
+  validateNotificationBroadcast,
 };

@@ -4,6 +4,8 @@ const tenantRoutes = require('./tenants');
 const roomRoutes = require('./rooms');
 const paymentRoutes = require('./payments');
 const reportRoutes = require('./reports');
+const notificationRoutes = require('./notifications');
+const dashboardRoutes = require('./dashboard');
 
 const router = express.Router();
 
@@ -23,5 +25,7 @@ router.use('/tenants', tenantRoutes);
 router.use('/rooms', roomRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/reports', reportRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 module.exports = router;
