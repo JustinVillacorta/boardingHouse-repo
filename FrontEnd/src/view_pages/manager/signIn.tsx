@@ -47,8 +47,10 @@ class LoginController {
       setTimeout(() => {
         if (user.email === 'admin@gmail.com' && user.password === 'password123') {
           resolve({ success: true, message: 'Login successful! Welcome back Admin.', redirect: '/main' });
-        } else if (user.email === 'user@gmail.com' && user.password === 'password123') {
-          resolve({ success: true, message: 'Login successful! Welcome back User.', redirect: '/user' });
+        } else if (user.email === 'tenant@gmail.com' && user.password === 'password123') {
+          resolve({ success: true, message: 'Login successful! Welcome back Tenant.', redirect: '/tenant' });
+        } else if (user.email === 'staff@gmail.com' && user.password === 'password123') {
+          resolve({ success: true, message: 'Login successful! Welcome back Staff.', redirect: '/staff' });
         } else {
           reject(new Error('Invalid email or password. Try admin@gmail.com or user@gmail.com with password123'));
         }
@@ -250,8 +252,12 @@ export default function LoginPage() {
             <p className="text-sm text-blue-700">Email: admin@gmail.com</p>
             <p className="text-sm text-blue-700">Password: password123</p>
 
-            <p className="mt-6 text-sm text-blue-800 font-medium mb-2">Demo Credentials: (USER):</p>
+            <p className="mt-6 text-sm text-blue-800 font-medium mb-2">Demo Credentials: (TENANT):</p>
             <p className="text-sm text-blue-700">Email: user@gmail.com</p>
+            <p className="text-sm text-blue-700">Password: password123</p>
+
+            <p className="mt-6 text-sm text-blue-800 font-medium mb-2">Demo Credentials: (STAFF):</p>
+            <p className="text-sm text-blue-700">Email: staff@gmail.com</p>
             <p className="text-sm text-blue-700">Password: password123</p>
           </div>
         </div>

@@ -48,7 +48,7 @@ const TopNavbar: React.FC = () => {
           onClick={() => navigate("/main")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
-            Dashboard User
+            Dashboard
           </h1>
           <p className="ml-2 text-sm text-gray-400">
             Your room info, payments Account status
@@ -126,7 +126,7 @@ const Sidebar: React.FC = () => {
   };
 
   const navigationItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/user" },
+    { name: "Dashboard", icon: LayoutDashboard, path: "/staff" },
     { name: "Users", icon: User, path: "" },
     { name: "Rooms", icon: DoorOpen, path: "" },
     { name: "Payment", icon: PhilippinePeso, path: "" },

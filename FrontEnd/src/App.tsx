@@ -12,8 +12,11 @@ import Settings from './view_pages/manager/settings';
 import WorkLogs from './view_pages/manager/payment';
 import Notifications from './view_pages/manager/notifications'; 
 
-{/* User Path*/}
-import UserFrame from './view_pages/user/userFrame';
+{/* Tenant Path*/}
+import TenantFrame from './view_pages/tenant/tenantFrame';
+
+{/* Staff Path*/}
+import StaffFrame from './view_pages/staff/staffFrame';
 
 
 const App: React.FC = () => {
@@ -35,8 +38,11 @@ const App: React.FC = () => {
         <Route path="/settings" element={<Settings />} />
         <Route path="/notifications" element={<Notifications />} />
 
-        {/* User routes */}
-        <Route path="/user" element={<UserFrame />} />
+        {/* Tenant routes */}
+        <Route path="/tenant" element={<TenantFrame />} />
+
+        {/* Staff routes */}
+        <Route path="/staff" element={<StaffFrame />} />
         
         <Route path="*" element={<Navigate to="/signIn" replace />} />
       </Routes>
