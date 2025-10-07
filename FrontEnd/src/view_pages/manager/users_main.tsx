@@ -13,6 +13,7 @@ import {
   LogOut,
   SquarePen
 } from 'lucide-react';
+import { useAuth } from "../../contexts/AuthContext";
 
 interface Task {
   id: string;
@@ -130,12 +131,18 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in");
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setShowLogoutConfirm(false);
+      navigate("/sign-in");
+    }
   };
 
   const navigationItems = [

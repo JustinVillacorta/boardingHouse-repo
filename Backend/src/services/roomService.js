@@ -40,6 +40,21 @@ class RoomService {
     }
   }
 
+  // Get all rooms with tenant information for frontend
+  async getAllRoomsWithTenants(options = {}) {
+    try {
+      const result = await roomRepository.findAllWithTenants(options);
+      
+      return {
+        rooms: result.rooms,
+        pagination: result.pagination,
+        total: result.total
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Get room by ID
   async getRoomById(roomId) {
     try {

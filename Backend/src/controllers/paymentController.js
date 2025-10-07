@@ -80,7 +80,29 @@ class PaymentController {
 
       const result = await paymentService.getAllPayments(filters, options);
       
-      sendResponse(res, 'Payments retrieved successfully', result);
+      // Format for frontend compatibility
+      const formattedPayments = result.payments.map(payment => ({
+        id: payment._id,
+        roomnumber: payment.room?.roomNumber || 'N/A',
+        assignee: payment.tenant ? `${payment.tenant.firstName} ${payment.tenant.lastName}` : 'Unknown',
+        status: payment.status === 'paid' ? 'Occupied' : 'More Info',
+        dueDate: payment.dueDate.toISOString().split('T')[0],
+        // Full payment details for detailed views
+        amount: payment.amount,
+        paymentType: payment.paymentType,
+        paymentMethod: payment.paymentMethod,
+        paymentDate: payment.paymentDate,
+        receiptNumber: payment.receiptNumber,
+        isLatePayment: payment.isLatePayment,
+        tenant: payment.tenant,
+        room: payment.room
+      }));
+      
+      sendResponse(res, 'Payments retrieved successfully', {
+        payments: formattedPayments,
+        pagination: result.pagination,
+        total: result.total
+      });
     } catch (error) {
       console.error('Get all payments error:', error);
       sendError(res, error.message, 500);

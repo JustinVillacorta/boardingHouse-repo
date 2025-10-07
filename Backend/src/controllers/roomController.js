@@ -36,12 +36,12 @@ class RoomController {
     }
   }
 
-  // GET /api/rooms - Get all rooms
+  // GET /api/rooms - Get all rooms with tenant information
   async getAllRooms(req, res) {
     try {
       const options = {
         page: parseInt(req.query.page) || 1,
-        limit: parseInt(req.query.limit) || 10,
+        limit: parseInt(req.query.limit) || 50,
         sortBy: req.query.sortBy || 'roomNumber',
         sortOrder: req.query.sortOrder || 'asc',
         status: req.query.status,
@@ -54,8 +54,32 @@ class RoomController {
         isAvailable: req.query.available === 'true' ? true : req.query.available === 'false' ? false : undefined,
       };
 
-      const result = await roomService.getAllRooms(options);
-      return sendSuccess(res, 'Rooms retrieved successfully', result);
+      const result = await roomService.getAllRoomsWithTenants(options);
+      
+      // Format for frontend compatibility
+      const formattedRooms = result.rooms.map(room => ({
+        id: room._id,
+        roomnumber: room.roomNumber,
+        roomtype: room.roomType.charAt(0).toUpperCase() + room.roomType.slice(1),
+        price: room.monthlyRent.toFixed(2),
+        assignee: room.tenant ? room.tenant.name : 'Vacant',
+        status: room.status === 'available' ? 'Vacant' : 'Occupied',
+        dateStarted: room.tenant ? room.tenant.leaseStartDate?.toISOString().split('T')[0] : room.createdAt.toISOString().split('T')[0],
+        // Full room details for detailed views
+        capacity: room.capacity,
+        floor: room.floor,
+        amenities: room.amenities,
+        description: room.description,
+        tenant: room.tenant,
+        createdAt: room.createdAt,
+        updatedAt: room.updatedAt
+      }));
+
+      return sendSuccess(res, 'Rooms retrieved successfully', {
+        rooms: formattedRooms,
+        pagination: result.pagination,
+        total: result.total
+      });
     } catch (error) {
       console.error('Get all rooms error:', error);
       return sendServerError(res, 'Failed to retrieve rooms');

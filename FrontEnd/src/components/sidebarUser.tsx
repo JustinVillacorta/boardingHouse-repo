@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
 } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -19,13 +20,20 @@ const SidebarUser: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) =>
   const navigate = useNavigate();
   const location = useLocation(); // 👈 get current path
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout } = useAuth();
 
-  // ✅ logout handler is now inside Sidebar
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  // ✅ logout handler using AuthContext
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in");
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Still redirect even if logout fails
+      setShowLogoutConfirm(false);
+      navigate("/sign-in");
+    }
   };
 
   const navigationItems = [

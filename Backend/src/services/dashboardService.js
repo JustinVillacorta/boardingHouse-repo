@@ -46,13 +46,11 @@ class DashboardService {
     }
   }
 
-  // Get room occupancy data
+  // Get room occupancy data (frontend-compatible format)
   async getRoomOccupancyData() {
     try {
       const rooms = await Room.find({ isActive: true }).lean();
       const tenants = await Tenant.find({}).lean();
-
-
 
       const occupancyData = {
         totalRooms: rooms.length,
@@ -60,11 +58,13 @@ class DashboardService {
         availableRooms: 0,
         maintenanceRooms: 0,
         occupancyRate: 0,
+        // Frontend expects pie chart data format
+        chartData: [],
         roomTypes: {},
         roomDetails: [],
       };
 
-            // Count rooms by status
+      // Count rooms by status
       rooms.forEach(room => {
         switch (room.status) {
           case 'occupied':
@@ -118,6 +118,20 @@ class DashboardService {
           (occupancyData.occupiedRooms / occupancyData.totalRooms) * 100
         );
       }
+
+      // Format data for frontend pie chart (matches mainFrame.tsx expected format)
+      occupancyData.chartData = [
+        { 
+          name: "Occupied", 
+          value: occupancyData.occupiedRooms, 
+          color: "#899effff" 
+        },
+        { 
+          name: "Vacant", 
+          value: occupancyData.availableRooms, 
+          color: "#ff7575ff" 
+        }
+      ];
 
       return occupancyData;
     } catch (error) {
@@ -212,8 +226,8 @@ class DashboardService {
         });
       }
 
-      // Generate monthly trends for the last 12 months
-      for (let i = 11; i >= 0; i--) {
+      // Generate monthly trends for the last 4 months (matches frontend chart)
+      for (let i = 3; i >= 0; i--) {
         const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
         const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - i + 1, 1);
         
@@ -222,13 +236,17 @@ class DashboardService {
           return paymentDate >= monthDate && paymentDate < nextMonthDate;
         });
 
+        const paidPayments = monthPayments.filter(p => p.status === 'paid');
+        const overduePayments = monthPayments.filter(p => p.status === 'overdue');
+
         stats.monthlyTrends.push({
-          month: monthDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' }),
+          month: monthDate.toLocaleDateString('en-US', { month: 'short' }),
+          collected: paidPayments.reduce((sum, payment) => sum + payment.amount, 0),
+          overdue: overduePayments.reduce((sum, payment) => sum + payment.amount, 0),
           count: monthPayments.length,
-          amount: monthPayments.reduce((sum, payment) => sum + payment.amount, 0),
-          paid: monthPayments.filter(p => p.status === 'paid').length,
+          paid: paidPayments.length,
           pending: monthPayments.filter(p => p.status === 'pending').length,
-          overdue: monthPayments.filter(p => p.status === 'overdue').length,
+          overdueCount: overduePayments.length,
         });
       }
 

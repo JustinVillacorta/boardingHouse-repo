@@ -1,10 +1,11 @@
 // pages/signIn.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, Mail, User} from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 // MODEL
-interface User {
+interface LoginForm {
   email: string;
   password: string;
 }
@@ -15,7 +16,7 @@ interface ValidationResult {
 }
 
 class UserModel {
-  static validateUser(user: User): ValidationResult {
+  static validateUser(user: LoginForm): ValidationResult {
     const errors: string[] = [];
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -35,40 +36,25 @@ class UserModel {
   }
 }
 
-// CONTROLLER
-class LoginController {
-  static async login(user: User): Promise<{ success: boolean; message: string; redirect: string }> {
-    const validation = UserModel.validateUser(user);
-    if (!validation.isValid) {
-      throw new Error(validation.errors.join(', '));
-    }
-
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (user.email === 'admin@gmail.com' && user.password === 'password123') {
-          resolve({ success: true, message: 'Login successful! Welcome back Admin.', redirect: '/main' });
-        } else if (user.email === 'tenant@gmail.com' && user.password === 'password123') {
-          resolve({ success: true, message: 'Login successful! Welcome back Tenant.', redirect: '/tenant' });
-        } else if (user.email === 'staff@gmail.com' && user.password === 'password123') {
-          resolve({ success: true, message: 'Login successful! Welcome back Staff.', redirect: '/staff' });
-        } else {
-          reject(new Error('Invalid email or password. Try admin@gmail.com or user@gmail.com with password123'));
-        }
-      }, 1500);
-    });
-  }
-}
-
 // VIEW
 export default function LoginPage() {
-  const navigate = useNavigate(); // ✅ Navigation hook
+  const navigate = useNavigate();
+  const { login, isLoading: authLoading, isAuthenticated, user } = useAuth();
 
-  const [formData, setFormData] = useState<User>({ email: '', password: '' });
+  const [formData, setFormData] = useState<LoginForm>({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const redirectPath = user.role === 'admin' || user.role === 'staff' ? '/main' : 
+                          user.role === 'tenant' ? '/tenant' : '/main';
+      navigate(redirectPath, { replace: true });
+    }
+  }, [isAuthenticated, user, navigate]);
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,20 +71,24 @@ export default function LoginPage() {
       return;
     }
 
+    // Validate form data
+    const validation = UserModel.validateUser(formData);
+    if (!validation.isValid) {
+      setMessage({ text: validation.errors.join(', '), type: 'error' });
+      return;
+    }
+
     setIsLoading(true);
     setMessage(null);
 
     try {
-      const result = await LoginController.login(formData);
-      setMessage({ text: result.message, type: 'success' });
-
-      // ✅ Redirect after short delay
-      setTimeout(() => {
-        navigate(result.redirect, { replace: true });
-      }, 1000);
+      await login(formData.email, formData.password);
+      setMessage({ text: 'Login successful! Redirecting...', type: 'success' });
+      
+      // Navigation will be handled by the useEffect hook above
     } catch (error) {
       setMessage({
-        text: error instanceof Error ? error.message : 'An unexpected error occurred',
+        text: error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.',
         type: 'error'
       });
     } finally {
@@ -106,18 +96,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleSocialLogin = async (provider: string) => {
-    setSocialLoading(provider);
-    setMessage(null);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setMessage({ text: `${provider} login successful! (Demo)`, type: 'success' });
-    } catch {
-      setMessage({ text: `${provider} login failed. Please try again.`, type: 'error' });
-    } finally {
-      setSocialLoading(null);
-    }
-  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -229,10 +208,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={isLoading}
-              className="w-full bg-black text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50"
+              disabled={isLoading || authLoading}
+              className="w-full bg-black text-white py-3 px-4 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Logging in...' : 'Log in'}
+              {isLoading || authLoading ? 'Logging in...' : 'Log in'}
             </button>
 
 

@@ -28,7 +28,111 @@ class RoomRepository {
       .populate('currentTenant', 'firstName lastName fullName phoneNumber email');
   }
 
-  // Get all rooms with optional filters and pagination
+  // Get all rooms with tenant information
+  async findAllWithTenants(options = {}) {
+    const {
+      page = 1,
+      limit = 50,
+      sortBy = 'roomNumber',
+      sortOrder = 'asc',
+      status,
+      roomType,
+      floor,
+      minCapacity,
+      maxCapacity,
+      minRent,
+      maxRent,
+      isAvailable,
+    } = options;
+
+    // Build query
+    const query = { isActive: true };
+
+    if (status) query.status = status;
+    if (roomType) query.roomType = roomType;
+    if (floor !== undefined) query.floor = floor;
+    if (minCapacity) query.capacity = { ...query.capacity, $gte: minCapacity };
+    if (maxCapacity) query.capacity = { ...query.capacity, $lte: maxCapacity };
+    if (minRent) query.monthlyRent = { ...query.monthlyRent, $gte: minRent };
+    if (maxRent) query.monthlyRent = { ...query.monthlyRent, $lte: maxRent };
+
+    if (isAvailable !== undefined) {
+      if (isAvailable) {
+        query.status = 'available';
+      } else {
+        query.status = { $ne: 'available' };
+      }
+    }
+
+    // Calculate skip for pagination
+    const skip = (page - 1) * limit;
+
+    // Build sort object
+    const sort = {};
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    // Execute aggregation to join with tenant data
+    const pipeline = [
+      { $match: query },
+      {
+        $lookup: {
+          from: 'tenants',
+          localField: 'roomNumber',
+          foreignField: 'roomNumber',
+          as: 'tenantData'
+        }
+      },
+      {
+        $addFields: {
+          tenant: {
+            $cond: {
+              if: { $gt: [{ $size: '$tenantData' }, 0] },
+              then: {
+                $let: {
+                  vars: { tenant: { $arrayElemAt: ['$tenantData', 0] } },
+                  in: {
+                    id: '$$tenant._id',
+                    name: { $concat: ['$$tenant.firstName', ' ', '$$tenant.lastName'] },
+                    phoneNumber: '$$tenant.phoneNumber',
+                    leaseStartDate: '$$tenant.leaseStartDate',
+                    leaseEndDate: '$$tenant.leaseEndDate',
+                    tenantStatus: '$$tenant.tenantStatus'
+                  }
+                }
+              },
+              else: null
+            }
+          }
+        }
+      },
+      { $unset: 'tenantData' },
+      { $sort: sort },
+      { $skip: skip },
+      { $limit: limit }
+    ];
+
+    const [rooms, totalCount] = await Promise.all([
+      Room.aggregate(pipeline),
+      Room.countDocuments(query)
+    ]);
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      rooms,
+      total: totalCount,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: totalCount,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
+  }
+
+  // Get all rooms with optional filters and pagination (original method)
   async findAll(options = {}) {
     const {
       page = 1,

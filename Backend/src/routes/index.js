@@ -1,5 +1,6 @@
 const express = require('express');
 const authRoutes = require('./auth');
+const userRoutes = require('./users');
 const tenantRoutes = require('./tenants');
 const roomRoutes = require('./rooms');
 const paymentRoutes = require('./payments');
@@ -21,6 +22,7 @@ router.get('/health', (req, res) => {
 
 // API routes
 router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
 router.use('/tenants', tenantRoutes);
 router.use('/rooms', roomRoutes);
 router.use('/payments', paymentRoutes);
