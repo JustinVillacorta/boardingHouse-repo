@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Add useEffect
 import { useNavigate, useLocation  } from 'react-router-dom';
 import { 
   Search,
@@ -11,39 +11,24 @@ import {
   Wrench,
   BellDot,
   LogOut,
-  Bell
+  Bell,
+  X // Add X icon for closing modal
 } from 'lucide-react';
 
-interface Task {
-  id: string;
-  roomnumber: string;
-  roomtype: 'Single' | 'Double' | 'Shared' | 'Suited';
-  price: string;
-  assignee: string;
-  status: 'Occupied' | 'Vacant';
-  dateStarted: string;
+// Update interface to include availability status
+interface RoomData {
+  _id: string;
+  id: number;
+  rooms: string;
+  name: string;
+  rent: string;
+  roomType: string;
+  availabilityStatus: string;    // NEW: Availability status field
+  startDate: string;
+  endDate: string;
+  hasVehicle: boolean;
+  timestamp: string;
 }
-
-const SAMPLE_TASKS: Task[] = [
-  {
-    id: '1',
-    roomnumber: '305',
-    roomtype: 'Single',
-    price: '1.00',
-    assignee: 'Yaoh Ghori',
-    status: 'Occupied',
-    dateStarted: '2024-01-15'
-  },
-  {
-    id: '2',
-    roomnumber: '273',
-    roomtype: 'Double',
-    price: '1.00',
-    assignee: 'Sarah Wilson',
-    status: 'Vacant',
-    dateStarted: '2024-01-15'
-  },
-];
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -70,7 +55,6 @@ const TopNavbar: React.FC = () => {
             Manage house rooms
           </p>
         </div>
-
 
         {/* Right */}
         <div className="flex items-center space-x-4">
@@ -207,7 +191,6 @@ const Sidebar: React.FC = () => {
               </div>
             </div>
           </div>
-
         </div>
         
         <nav className="mt-6">
@@ -260,91 +243,443 @@ const Sidebar: React.FC = () => {
   );
 };
 
-const Rooms: React.FC = () =>{
+// Add Room Modal Component
+const AddRoomModal: React.FC<{ isOpen: boolean; onClose: () => void; onRoomAdded: () => void }> = ({ 
+  isOpen, 
+  onClose, 
+  onRoomAdded 
+}) => {
+  const [formData, setFormData] = useState({
+    roomAssignment: '',
+    tenantName: '',        
+    monthlyRent: '',
+    roomType: 'Single',
+    availabilityStatus: 'Vacant',    // NEW: Availability status field
+    leaseStartDate: '',
+    leaseEndDate: '',
+    hasVehicle: false
+  });
 
-    return (
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0 pl-64">
-            <TopNavbar />
-            
-          {/* ✅ Full width wrapper instead of max-w-7xl */}
-          <div className="w-full p-6"> 
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-              <Plus className="w-4 h-4"/>
-              New Task
-            </button>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Prepare data to send to backend
+    const dataToSend = {
+      roomAssignment: formData.roomAssignment,
+      tenantName: formData.tenantName,     
+      monthlyRent: formData.monthlyRent,
+      roomType: formData.roomType,
+      availabilityStatus: formData.availabilityStatus,  // NEW: Include availability status
+      leaseStartDate: formData.leaseStartDate,
+      leaseEndDate: formData.leaseEndDate,
+      hasVehicle: formData.hasVehicle
+    };
 
-            {/* Projects Content */}
-            <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
-              <div className="flex items-center justify-between mb-6 w-full">
-                {/* ✅ Big Box Wrapper */}
-                <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                  
-                  {/* ✅ Header Row */}
-                  <div className="grid grid-cols-7 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
-                    <span>Name</span>
-                    <span>Room Number</span>
-                    <span>Room Type</span>
-                    <span>Availability Status</span>
-                    <span>Price</span>
-                    <span>Started Date</span>
-                    <span>Actions</span>
-                  </div>
+    console.log('📤 Sending data to backend:', dataToSend);
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/add-hello', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify(dataToSend)
+      });
 
-                  {/* ✅ Task Rows */}
-                  <div className="space-y-2">
-                    {SAMPLE_TASKS.map((task) => (
-                      <div
-                        key={task.id}
-                        className="grid grid-cols-7 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
-                      >
-                        {/* Name */}
-                        <span className="text-center">{task.assignee}</span>
+      const data = await response.json();
+      console.log('📥 Response from backend:', data);
+      
+      if (data.success) {
+        alert(`✅ ${data.message}\n\nRoom Details:\n- Tenant: ${data.data.name}\n- Room: ${data.data.rooms}\n- Type: ${data.data.roomType}\n- Status: ${data.data.availabilityStatus}\n- Rent: ₱${data.data.rent}\n- Start: ${data.data.startDate}\n- End: ${data.data.endDate}\n- Vehicle: ${formData.hasVehicle ? 'Yes' : 'No'}`);
+        
+        // Reset form and close modal
+        setFormData({
+          roomAssignment: '',
+          tenantName: '',        
+          monthlyRent: '',
+          roomType: 'Single',
+          availabilityStatus: 'Vacant',    // NEW: Reset availability status
+          leaseStartDate: '',
+          leaseEndDate: '',
+          hasVehicle: false
+        });
+        
+        // Refresh the room data
+        onRoomAdded();
+        onClose();
+      } else {
+        alert(`❌ Error: ${data.message}`);
+      }
+    } catch (err) {
+      console.error('❌ Network error:', err);
+      alert('❌ Failed to connect to server');
+    }
+  };
 
-                        {/* Room Number */}
-                        <span className="text-center">{task.roomnumber}</span>
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({
+        ...prev,
+        [name]: checked
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
 
-                        {/* Room Type */}
-                        <span className="text-center">{task.roomtype}</span>
+  if (!isOpen) return null;
 
-                        {/* Role */}
-                        <span className="text-center">
-                          <span className={`w-24 text-center inline-block px-2 py-1 rounded-full text-sm font-semibold ${
-                                task.status === "Vacant"
-                                  ? "bg-yellow-200 text-black"
-                                  : "bg-green-200 text-black"
-                              }`} 
-                          >
-                            {task.status}
-                          </span>
-                        </span>
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-semibold text-gray-800">Room Assignment and Lease</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
 
-                        {/* Status */}
-                        <span className="text-center">
-                            {task.price}
-                        </span>
+        {/* Modal Form */}
+        <form onSubmit={handleSubmit} className="space-y-6">
+          
+          {/* Room Assignment and Tenant Name Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Room Assignment */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Room Assignment
+              </label>
+              <select
+                name="roomAssignment"
+                value={formData.roomAssignment}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+                required
+              >
+                <option value="">Select Available Room</option>
+                <option value="Room 302">Room 302</option>
+                <option value="Room 115">Room 115</option>
+                <option value="Room 82">Room 82</option>
+                <option value="Room 116">Room 116</option>
+                <option value="Room 305">Room 305</option>
+                <option value="Room 273">Room 273</option>
+              </select>
+            </div>
 
-                        {/* Time Started */}
-                        <span className="text-center">{task.dateStarted}</span>
-
-                        {/* Actions */}
-                        <span className="flex justify-center">
-                          <button>
-                            <SquarePen className="w-5 h-5 text-black hover:text-gray-600" />
-                          </button>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </main>
-
+            {/* Tenant Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tenant Name/s
+              </label>
+              <input
+                type="text"
+                name="tenantName"
+                value={formData.tenantName}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., John Doe"
+                required
+              />
+            </div>
           </div>
+
+          {/* Monthly Rent and Room Type Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Monthly Rent */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Monthly Rent (₱)
+              </label>
+              <input
+                type="number"
+                name="monthlyRent"
+                value={formData.monthlyRent}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="5800"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
+
+            {/* Room Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Room Type
+              </label>
+              <select
+                name="roomType"
+                value={formData.roomType}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+                required
+              >
+                <option value="Single">Single</option>
+                <option value="Double">Double</option>
+                <option value="Triple">Triple</option>
+              </select>
+            </div>
+          </div>
+
+          {/* NEW: Availability Status and Lease Start Date Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* NEW: Availability Status */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Availability Status
+              </label>
+              <select
+                name="availabilityStatus"
+                value={formData.availabilityStatus}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+                required
+              >
+                <option value="Vacant">Vacant</option>
+                <option value="Occupied">Occupied</option>
+              </select>
+            </div>
+
+            {/* Lease Start Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lease Start Date
+              </label>
+              <input
+                type="date"
+                name="leaseStartDate"
+                value={formData.leaseStartDate}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Lease End Date Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Lease End Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Lease End Date
+              </label>
+              <input
+                type="date"
+                name="leaseEndDate"
+                value={formData.leaseEndDate}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div></div> {/* Empty div for spacing */}
+          </div>
+
+          {/* Additional Information */}
+          <div>
+            <h3 className="text-lg font-medium text-gray-800 mb-4">Additional Information</h3>
+            <div className="space-y-3">
+              <label className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  name="hasVehicle"
+                  checked={formData.hasVehicle}
+                  onChange={handleInputChange}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">Has vehicle requiring parking</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Modal Buttons */}
+          <div className="flex justify-end gap-4 pt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors bg-red-100"
+            >
+              Clear
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Update the main Rooms component
+const Rooms: React.FC = () => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [roomData, setRoomData] = useState<RoomData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Function to fetch room data from database
+  const fetchRoomData = async () => {
+    try {
+      setLoading(true);
+      console.log('🔍 Fetching room data from database...');
+      
+      const response = await fetch('http://localhost:5000/api/rooms');
+      const data = await response.json();
+      
+      console.log('📥 Fetched data:', data);
+      
+      if (data.success) {
+        setRoomData(data.data);
+        setError(null);
+      } else {
+        setError('Failed to fetch room data');
+        console.error('❌ API Error:', data);
+      }
+    } catch (err) {
+      setError('Network error - Could not connect to server');
+      console.error('❌ Network Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch data when component mounts
+  useEffect(() => {
+    fetchRoomData();
+  }, []);
+
+  const handleAddRoomClick = () => {
+    setIsModalOpen(true);
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 pl-64">
+        <TopNavbar />
+        
+        <div className="w-full p-6"> 
+          <div className="flex items-center justify-between mb-4">
+            <button 
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              onClick={handleAddRoomClick}
+            >
+              <Plus className="w-4 h-4"/>
+              Add Room
+            </button>
+            
+            <button 
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              onClick={fetchRoomData}
+            >
+              🔄 Refresh Data
+            </button>
+          </div>
+
+          {/* Main Content */}
+          <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
+            <div className="flex items-center justify-between mb-6 w-full">
+              <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+                
+                {/* Table Header */}
+                <div className="grid grid-cols-7 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
+                  <span>Name</span>
+                  <span>Room Number</span>
+                  <span>Room Type</span>
+                  <span>Availability Status</span>
+                  <span>Monthly Rent (₱)</span>
+                  <span>Start Date</span>
+                  <span>Actions</span>
+                </div>
+
+                {/* Table Content */}
+                <div className="space-y-2">
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                      <p className="mt-2 text-gray-500">Loading room data...</p>
+                    </div>
+                  ) : error ? (
+                    <div className="text-center py-8">
+                      <p className="text-red-500">❌ {error}</p>
+                      <button 
+                        onClick={fetchRoomData}
+                        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        Try Again
+                      </button>
+                    </div>
+                  ) : roomData.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">No room data found. Add your first room!</p>
+                    </div>
+                  ) : (
+                    roomData.map((room) => {
+                      return (
+                        <div
+                          key={room._id}
+                          className="grid grid-cols-7 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
+                        >
+                          <span className="text-center">{room.name}</span>
+                          <span className="text-center">{room.rooms}</span>
+                          <span className="text-center">{room.roomType || 'Single'}</span>
+                          <span className="text-center">
+                            <span className={`w-24 text-center inline-block px-2 py-1 rounded-full text-sm font-semibold ${
+                                  room.availabilityStatus === "Vacant"    // NEW: Use actual availability status from database
+                                    ? "bg-yellow-200 text-black"
+                                    : "bg-green-200 text-black"
+                                }`} 
+                            >
+                              {room.availabilityStatus || 'Vacant'}  {/* NEW: Display actual status */}
+                            </span>
+                          </span>
+                          <span className="text-center">₱{room.rent}</span>
+                          <span className="text-center">{room.startDate}</span>
+                          <span className="flex justify-center">
+                            <button>
+                              <SquarePen className="w-5 h-5 text-black hover:text-gray-600" />
+                            </button>
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                
+                {/* Database Info */}
+                {roomData.length > 0 && (
+                  <div className="mt-4 text-sm text-gray-500 text-center">
+                    📊 Showing {roomData.length} room(s) from MongoDB • Database: boardmate • Collection: rooms_management
+                  </div>
+                )}
+              </div>
+            </div>
+          </main>
         </div>
       </div>
-    );
+
+      {/* Add Room Modal */}
+      <AddRoomModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)}
+        onRoomAdded={fetchRoomData}
+      />
+    </div>
+  );
 };
 
 export default Rooms;
