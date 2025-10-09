@@ -83,6 +83,10 @@ class ApiService {
     return this.request('/dashboard/payments');
   }
 
+  async getReportStats() {
+    return this.request('/dashboard/reports');
+  }
+
   // Users methods (for frontend users management page)
   async getUsers(params = {}) {
     const queryString = new URLSearchParams(params).toString();
