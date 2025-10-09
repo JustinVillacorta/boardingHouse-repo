@@ -45,15 +45,15 @@ class ReportService {
   // Get all reports with filters
   async getAllReports(filters = {}, options = {}) {
     try {
-      // Build filters object
-      const queryFilters = { isActive: true };
+      // Build filters object - Remove isActive filter since Report model doesn't have this field
+      const queryFilters = {};
 
       if (filters.status) {
         queryFilters.status = filters.status;
       }
 
-      if (filters.reportType) {
-        queryFilters.reportType = filters.reportType;
+      if (filters.type) {
+        queryFilters.type = filters.type;
       }
 
       if (filters.priority) {
@@ -80,21 +80,21 @@ class ReportService {
         queryFilters.urgency = filters.urgency;
       }
 
-      // Date range filters
+      // Date range filters - use submittedAt instead of reportedDate
       if (filters.startDate || filters.endDate) {
-        queryFilters.reportedDate = {};
+        queryFilters.submittedAt = {};
         if (filters.startDate) {
-          queryFilters.reportedDate.$gte = new Date(filters.startDate);
+          queryFilters.submittedAt.$gte = new Date(filters.startDate);
         }
         if (filters.endDate) {
-          queryFilters.reportedDate.$lte = new Date(filters.endDate);
+          queryFilters.submittedAt.$lte = new Date(filters.endDate);
         }
       }
 
-      // Overdue filter
+      // Overdue filter - only use valid status values from the model
       if (filters.overdue === 'true' || filters.overdue === true) {
-        queryFilters.status = { $nin: ['resolved', 'closed', 'cancelled'] };
-        queryFilters.expectedResolutionDate = { $lt: new Date() };
+        queryFilters.status = { $nin: ['resolved', 'rejected'] };
+        // Note: Remove expectedResolutionDate filter since the model doesn't have this field
       }
 
       return await reportRepository.findAll(queryFilters, options);

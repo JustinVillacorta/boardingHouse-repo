@@ -18,63 +18,11 @@ import {
   Calendar
 } from 'lucide-react';
 import { useAuth } from "../../contexts/AuthContext";
+import { useReports } from "../../features/reports";
+import type { ReportStatus } from "../../features/reports/domain/entities/Report";
 
-// ✅ Define allowed status keys
-type StatusKey = "all" | "completed" | "maintenance" | "complaint" | "pending";
-
-/* -------------------- SAMPLE TASK DATA -------------------- */
-const tasks = [
-  {
-    id: 1,
-    title: "Light Bulb",
-    description: "Bedroom light bulb needs replacement",
-    status: "pending",
-    priority: "high",
-    assignee: "Sarah Chen",
-    dueDate: "2024-03-15",
-    progress: 50,
-  },
-  {
-    id: 2,
-    title: "Air Conditioning",
-    description: "AC not cooling properly",
-    status: "maintenance",
-    priority: "high",
-    assignee: "Mike Johnson",
-    dueDate: "2024-03-20",
-    progress: 65,
-  },
-  {
-    id: 3,
-    title: "Leaky Faucet",
-    description: "Bathroom faucet drips constantly.",
-    status: "maintenance",
-    priority: "medium",
-    assignee: "Alex Rivera",
-    dueDate: "2024-03-25",
-    progress: 30,
-  },
-  {
-    id: 4,
-    title: "Loud Noise On Next Room",
-    description: "Noise complaint at room 382",
-    status: "complaint",
-    priority: "low",
-    assignee: "Mia Khalifa",
-    dueDate: "2024-03-30",
-    progress: 0,
-  },
-  {
-    id: 5,
-    title: "Broken Window",
-    description: "I can't close the window",
-    status: "completed",
-    priority: "low",
-    assignee: "Emma Watson",
-    dueDate: "2024-03-30",
-    progress: 100,
-  },
-];
+// ✅ Define allowed status keys - updated to match backend
+type StatusKey = "all" | "resolved" | "in-progress" | "pending" | "rejected";
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -300,14 +248,14 @@ const Sidebar: React.FC = () => {
 /* -------------------- HELPERS -------------------- */
 const getStatusIcon = (status: string) => {
   switch (status) {
-    case "completed":
+    case "resolved":
       return <CheckCircle className="w-4 h-4 text-green-500" />;
-    case "maintenance":
+    case "in-progress":
       return <Play className="w-4 h-4 text-blue-500" />;
-    case "complaint":
-      return <Pause className="w-4 h-4 text-orange-500" />;
-    case "Pending":
-      return <Clock className="w-4 h-4 text-red-500" />;
+    case "pending":
+      return <Clock className="w-4 h-4 text-orange-500" />;
+    case "rejected":
+      return <Pause className="w-4 h-4 text-red-500" />;
     default:
       return <AlertCircle className="w-4 h-4 text-gray-500" />;
   }
@@ -315,57 +263,84 @@ const getStatusIcon = (status: string) => {
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case "completed":
+    case "resolved":
       return "bg-green-100 text-green-800";
-    case "maintenance":
+    case "in-progress":
       return "bg-blue-100 text-blue-800";
-    case "complaint":
-      return "bg-red-100 text-red-800";
     case "pending":
       return "bg-orange-100 text-orange-800";
+    case "rejected":
+      return "bg-red-100 text-red-800";
     default:
       return "bg-gray-100 text-gray-800";
   }
 };
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "high":
-      return "border-l-red-500";
-    case "medium":
-      return "border-l-yellow-500";
-    case "low":
-      return "border-l-green-500";
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case "in-progress":
+      return "In Progress";
+    case "resolved":
+      return "Resolved";
+    case "pending":
+      return "Pending";
+    case "rejected":
+      return "Rejected";
     default:
-      return "border-l-gray-500";
+      return status;
   }
 };
 
 /* -------------------- MAIN REPORT COMPONENT -------------------- */
 const Report: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<StatusKey>("all");
-  const [viewMode, setViewMode] = useState<"list" | "board">("list");
-  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Use the reports hook from clean architecture
+  const { 
+    reports, 
+    loading, 
+    error, 
+    clearError,
+    updateReportStatus 
+  } = useReports();
 
-  const filteredTasks = tasks.filter((task) => {
-    if (activeFilter === "all") return true;
-    return task.status === activeFilter;
+  // ✅ Status update handler
+  const handleStatusUpdate = async (reportId: string, newStatus: ReportStatus) => {
+    try {
+      await updateReportStatus(reportId, newStatus);
+      // The hook will automatically refresh the data
+    } catch (error) {
+      console.error('Failed to update report status:', error);
+      // You could add a toast notification here
+    }
+  };
+
+  // Filter reports based on active filter and search term
+  const filteredReports = reports.filter((report) => {
+    const matchesFilter = activeFilter === "all" || report.status === activeFilter;
+    const matchesSearch = searchTerm === "" || 
+      report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${report.tenant?.firstName} ${report.tenant?.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesFilter && matchesSearch;
   });
 
   const statusCounts: Record<StatusKey, number> = {
-    all: tasks.length,
-    completed: tasks.filter((t) => t.status === "completed").length,
-    "maintenance": tasks.filter((t) => t.status === "maintenance").length,
-    "complaint": tasks.filter((t) => t.status === "complaint").length,
-    pending: tasks.filter((t) => t.status === "pending").length,
+    all: reports.length,
+    resolved: reports.filter((r) => r.status === "resolved").length,
+    "in-progress": reports.filter((r) => r.status === "in-progress").length,
+    pending: reports.filter((r) => r.status === "pending").length,
+    rejected: reports.filter((r) => r.status === "rejected").length,
   };
 
   const filters: { key: StatusKey; label: string }[] = [
     { key: "all", label: "All Reports" },
-    { key: "completed", label: "Completed" },
-    { key: "maintenance", label: "Maintenance" },
-    { key: "complaint", label: "Complaint" },
+    { key: "resolved", label: "Resolved" },
+    { key: "in-progress", label: "In Progress" },
     { key: "pending", label: "Pending" },
+    { key: "rejected", label: "Rejected" },
   ];
 
     return (
@@ -382,8 +357,8 @@ const Report: React.FC = () => {
                         <div className="bg-white p-4 rounded-lg shadow-sm">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-gray-600">Total Projects</p>
-                              <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
+                              <p className="text-sm text-gray-600">Total Reports</p>
+                              <p className="text-2xl font-bold text-gray-900">{reports.length}</p>
                             </div>
                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                               <AlertCircle className="w-4 h-4 text-blue-600" />
@@ -394,8 +369,8 @@ const Report: React.FC = () => {
                         <div className="bg-white p-4 rounded-lg shadow-sm">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-gray-600">Completed</p>
-                              <p className="text-2xl font-bold text-green-600">{statusCounts.completed}</p>
+                              <p className="text-sm text-gray-600">Resolved</p>
+                              <p className="text-2xl font-bold text-green-600">{statusCounts.resolved}</p>
                             </div>
                             <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                               <CheckCircle className="w-4 h-4 text-green-600" />
@@ -407,7 +382,7 @@ const Report: React.FC = () => {
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm text-gray-600">In Progress</p>
-                              <p className="text-2xl font-bold text-blue-600">{statusCounts['maintenance']}</p>
+                              <p className="text-2xl font-bold text-blue-600">{statusCounts["in-progress"]}</p>
                             </div>
                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                               <Play className="w-4 h-4 text-blue-600" />
@@ -418,8 +393,8 @@ const Report: React.FC = () => {
                         <div className="bg-white p-4 rounded-lg shadow-sm">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm text-gray-600">Overdue</p>
-                              <p className="text-2xl font-bold text-red-600">3</p>
+                              <p className="text-sm text-gray-600">Pending</p>
+                              <p className="text-2xl font-bold text-red-600">{statusCounts.pending}</p>
                             </div>
                             <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
                               <Clock className="w-4 h-4 text-red-600" />
@@ -436,7 +411,9 @@ const Report: React.FC = () => {
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                             <input
                                 type="text"
-                                placeholder="Search tasks..."
+                                placeholder="Search reports..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                             </div>
@@ -460,50 +437,101 @@ const Report: React.FC = () => {
                         ))}
                       </div>
 
-                      {/* Task List */}
+                      {/* Loading and Error States */}
+                      {loading && (
+                        <div className="flex justify-center items-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        </div>
+                      )}
+
+                      {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                          <div className="flex justify-between items-center">
+                            <span>{error}</span>
+                            <button 
+                              onClick={clearError}
+                              className="text-red-700 hover:text-red-900"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reports List */}
                       <div className="space-y-4">
-                        {filteredTasks.map(task => (
+                        {!loading && filteredReports.length === 0 && (
+                          <div className="text-center py-8 text-gray-500">
+                            {searchTerm ? 'No reports match your search.' : 'No reports found.'}
+                          </div>
+                        )}
+                        
+                        {filteredReports.map(report => (
                           <div
-                            key={task.id}
-                            className={`bg-white rounded-lg shadow-sm border-l-4 ${getPriorityColor(task.priority)} p-6 hover:shadow-md transition-shadow`}
+                            key={report._id}
+                            className={`bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 p-6 hover:shadow-md transition-shadow`}
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
-                                  {getStatusIcon(task.status)}
-                                  <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                    {task.status.replace('-', ' ')}
+                                  {getStatusIcon(report.status)}
+                                  <h3 className="text-lg font-semibold text-gray-900">{report.title}</h3>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                                    {getStatusLabel(report.status)}
+                                  </span>
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800`}>
+                                    {report.type}
                                   </span>
                                 </div>
 
-                                <p className="text-gray-600 mb-4">{task.description}</p>
+                                <p className="text-gray-600 mb-4">{report.description}</p>
 
                                 <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                                   <div className="flex items-center gap-1">
                                     <User className="w-4 h-4" />
-                                    <span>{task.assignee}</span>
+                                    <span>{`${report.tenant?.firstName} ${report.tenant?.lastName}` || 'Unknown User'}</span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Calendar className="w-4 h-4" />
-                                    <span>{task.dueDate}</span>
+                                    <span>{new Date(report.submittedAt).toLocaleDateString()}</span>
+                                  </div>
+                                  {report.updatedAt && report.updatedAt !== report.submittedAt && (
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="w-4 h-4" />
+                                      <span>Updated: {new Date(report.updatedAt).toLocaleDateString()}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-1">
+                                    <span>Room: {report.room?.roomNumber}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span>Days: {report.daysSinceSubmission}</span>
                                   </div>
                                 </div>
 
                               </div>
 
                               <div className="ml-6 text-right">
-                                <div className="text-sm text-gray-500 mb-2">Progress</div>
+                                <div className="text-sm text-gray-500 mb-2">Status</div>
                                 <div className="w-32">
-                                  <div className="flex justify-between text-sm mb-1">
-                                    <span className="font-medium">{task.progress}%</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                      style={{ width: `${task.progress}%` }}
-                                    ></div>
-                                  </div>
+                                  <select
+                                    value={report.status}
+                                    onChange={(e) => handleStatusUpdate(report._id, e.target.value as ReportStatus)}
+                                    className={`w-full px-2 py-1 rounded text-xs font-medium border ${
+                                      report.status === 'resolved' 
+                                        ? 'bg-green-100 text-green-800 border-green-200' 
+                                        : report.status === 'in-progress' 
+                                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                        : report.status === 'pending'
+                                        ? 'bg-orange-100 text-orange-800 border-orange-200'
+                                        : 'bg-red-100 text-red-800 border-red-200'
+                                    }`}
+                                  >
+                                    <option value="pending">Pending</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="resolved">Resolved</option>
+                                    <option value="rejected">Rejected</option>
+                                  </select>
                                 </div>
                               </div>
                             </div>
