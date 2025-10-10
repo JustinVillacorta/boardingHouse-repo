@@ -1,48 +1,86 @@
-import React, { useState, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import AddUser from "../../components/modalAddUser"; // adjust the path if needed
-import EditUser from "../../components/modalEditUser";
+import React, { useState } from 'react';
+import { useNavigate, useLocation  } from 'react-router-dom';
 import { 
-  Search, 
-  Plus,
-  Bell,
+  Search,
+  User, 
   LayoutDashboard,
-  User,
   DoorOpen,
   PhilippinePeso,
   Wrench,
   BellDot,
   LogOut,
-  SquarePen,
-  Trash2,
-  Users
+  Bell
 } from 'lucide-react';
 
-interface Task {
+interface ManagePayment {
   id: string;
-  email: string;
-  role: string;
-  assignee: string;
-  status: 'Active' | 'Inactive';
-  dateStarted: string;
+  description: string;
+  amount: string;
+  status: 'Mark as Paid' | 'Paid';
+  dueDate: string;
 }
 
-const SAMPLE_TASKS: Task[] = [
+interface PaymentHistory {
+  id: string;
+  description: string;
+  amount: string;
+  dueDate: string;
+  paidDate: string;
+  status: string;
+  paymentMethod: string;
+}
+
+const SAMPLE_TASKS: ManagePayment[] = [
   {
     id: '1',
-    email: 'sample@gmail.com',
-    role: 'Staff',
-    assignee: 'Yaoh Ghori',
-    status: 'Active',
-    dateStarted: '2024-01-15'
+    amount: '305',
+    description: 'Monthly Rent - October 2024',
+    dueDate: '2024-01-15',
+    status: 'Mark as Paid',
   },
   {
     id: '2',
-    email: 'sample@gmail.com',
-    role: 'Tenant',
-    assignee: 'Sarah Wilson',
-    status: 'Inactive',
-    dateStarted: '2024-01-15'
+    amount: '273',
+    description: 'Utilities - October 2024',
+    dueDate: '2024-01-15',
+    status: 'Mark as Paid',
+  },
+  {
+    id: '3',
+    amount: '273',
+    description: 'Monthly Rent - November 2024',
+    dueDate: '2024-01-15',
+    status: 'Paid',
+  },
+];
+
+const SAMPLE_TASK: PaymentHistory[] = [
+  {
+    id: '1',
+    description: 'Monthly Rent - October 2024',
+    amount: '305',
+    dueDate: '2024-01-15',
+    paidDate: '2024-02-15',
+    status: 'Paid',
+    paymentMethod: 'Bank Transfer',
+  },
+  {
+    id: '2',
+    description: 'Utilities - October 2024',
+    amount: '273',
+    dueDate: '2024-01-15',
+    paidDate: '2024-02-15',
+    status: 'Paid',
+    paymentMethod: 'Credit Card',
+  },
+  {
+    id: '3',
+    description: 'Monthly Rent - November 2024',
+    amount: '273',
+    dueDate: '2024-01-15',
+    paidDate: '2024-02-15',
+    status: 'Paid',
+    paymentMethod: 'Credit Card',
   },
 ];
 
@@ -65,10 +103,10 @@ const TopNavbar: React.FC = () => {
           onClick={() => navigate("/main")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
-            Users
+            Payment Method
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            Manage system users and permissions
+            Manage your account and preferences
           </p>
         </div>
 
@@ -152,8 +190,16 @@ const Sidebar: React.FC = () => {
     { name: "Logout", icon: LogOut, action: () => setShowLogoutConfirm(true) },
   ];
 
-  const checkIsActive = (itemPath?: string) =>
-    itemPath ? location.pathname === itemPath : false;
+  const checkIsActive = (itemPath?: string) => {
+      if (!itemPath) return false;
+
+      // ✅ Keep "Payment" active for related routes
+      if (itemPath === "/payments" && location.pathname.startsWith("/payment")) {
+         return true;
+      }
+
+      return location.pathname === itemPath;
+  };
 
   return (
     <>
@@ -228,7 +274,7 @@ const Sidebar: React.FC = () => {
                 {item.name}
               </button>
             );
-          })}
+         })}
         </nav>
       </div>
 
@@ -261,238 +307,136 @@ const Sidebar: React.FC = () => {
   );
 };
 
-
-
-/* -------------------- MAIN USER PAGE -------------------- */
-const UserMain: React.FC = () => {
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<Task | null>(null);
-  const [showNotification, setShowNotification] = useState(false);
-  const [fadeOut, setFadeOut] = useState(false);
-
-  // Placeholder input state handlers for the modal
-  const [userType, setUserType] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [birthDate, setBirthDate] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [occupation, setOccupation] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [street, setStreet] = useState("");
-  const [province, setProvince] = useState("");
-  const [city, setCity] = useState("");
-  const [zipCode, setZipCode] = useState("");
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "");
-    if (value.length > 10) value = value.slice(0, 10);
-    setPhone(value);
-  };
-
-  const handleSave = () => {
-    // Your save logic here (like API call or state updates)
-    
-    setShowAddModal(false);
-    setShowEditModal(false);
-    handleClearForm();
-
-    // ✅ Reset fade state first before showing notification
-    setFadeOut(false);
-    setShowNotification(true);
-
-    // ✅ Fade out and hide the notification after a delay
-    setTimeout(() => {
-      setFadeOut(true); // start fade-out transition
-      setTimeout(() => {
-        setShowNotification(false); // remove from DOM
-      }, 500); // match the CSS fade duration
-    }, 2000); // show for 2 seconds before fading
-  };
-
-
-  const handleClearForm = () => {
-    setUserType("");
-    setFirstName("");
-    setLastName("");
-    setBirthDate("");
-    setPhone("");
-    setEmail("");
-    setOccupation("");
-    setPassword("");
-    setConfirmPassword("");
-    setStreet("");
-    setProvince("");
-    setCity("");
-    setZipCode("");
-  };
+const PaymentMoreInfo: React.FC = () => {
+  const navigate = useNavigate();
 
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
-
-      {/* ✅ Notification */}
-      {showNotification && (
-        <div
-          className={`fixed top-5 right-5 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-[1000]
-            transition-opacity duration-500 ease-in-out ${fadeOut ? "opacity-0" : "opacity-100"}`}
-        >
-          User information has been saved successfully!
-        </div>
-      )}
-
-
       <div className="flex-1 flex flex-col min-w-0 pl-64">
         <TopNavbar />
 
+        {/* ✅ Full width wrapper */}
         <div className="w-full p-6">
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold text-lg rounded-lg hover:bg-blue-700"
-            >
-              <Plus className="w-4 h-4" />
-              Create User
-            </button>
-          </div>
-
-          {/* Users Table */}
           <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
-            <div className="flex items-center justify-between mb-6 w-full">
-              <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                {/* Header */}
-                <div className="grid grid-cols-6 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
-                  <span>Name</span>
-                  <span>Email</span>
-                  <span>Role</span>
-                  <span>Status</span>
-                  <span>Date Started</span>
+            <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+              {/* ✅ Header for Payment Management */}
+              <div className="cursor-pointer flex flex-col items-start mb-10">
+                <h1 className="ml-2 text-3xl font-semibold text-gray-800">
+                  Payments — Manage your account and preferences
+                </h1>
+                <p className="ml-2 text-sm text-gray-400">
+                  Outstanding payments and upcoming dues
+                </p>
+              </div>
+
+              {/* ✅ Payment Management Table */}
+              <div className="mb-12">
+                {/* Header Row */}
+                <div className="grid grid-cols-4 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
+                  <span>Description</span>
+                  <span>Amount</span>
+                  <span>Due Date</span>
                   <span>Actions</span>
                 </div>
 
-                {/* Rows */}
+                {/* Task Rows */}
                 <div className="space-y-2">
                   {SAMPLE_TASKS.map((task) => (
                     <div
                       key={task.id}
-                      className="grid grid-cols-6 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
+                      className="grid grid-cols-4 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
                     >
-                      <span className="text-center">{task.assignee}</span>
-                      <span className="text-center">{task.email}</span>
-                      <span className="text-center">
+                      <span className="text-center">{task.description}</span>
+                      <span className="text-center">₱{task.amount}</span>
+                      <span className="text-center">{task.dueDate}</span>
+
+                      {/* Action */}
+                      <div className="text-center">
                         <span
-                          className={`inline-block px-2 py-1 rounded text-sm font-semibold ${
-                            task.status === "Active"
-                              ? "bg-blue-400 text-black"
-                              : "bg-green-400 text-black"
+                          className={`w-[110px] h-[30px] text-center inline-block px-2 py-1 rounded-lg text-sm font-semibold border transition-all ${
+                            task.status === "Mark as Paid"
+                              ? "bg-blue-100 text-blue-700 border-blue-700"
+                              : "bg-green-100 text-green-700 border-green-700"
                           }`}
                         >
-                          {task.role}
+                          {task.status}
                         </span>
-                      </span>
-                      <span className="text-center">{task.status}</span>
-                      <span className="text-center">{task.dateStarted}</span>
-                      <span className="flex justify-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedUser(task); // set clicked user info
-                            setShowEditModal(true); // open edit modal
-                          }}
-                        >
-                          <SquarePen className="w-6 h-6 text-black hover:text-gray-600" />
-                        </button>
-                        <button>
-                          <Trash2 className="w-6 h-6 text-red-600 hover:text-red-400" />
-                        </button>
-                      </span>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
+
+              {/* Divider Line */}
+              <hr className="border-t-1 border-gray-300" />
+
+              {/* ✅ Payment History Section (Still inside same white box) */}
+              <div className="mt-10">
+                <div className="cursor-pointer flex flex-col items-start mb-10">
+                  <h1 className="ml-2 text-3xl font-semibold text-gray-800">
+                    Payment History
+                  </h1>
+                  <p className="ml-2 text-sm text-gray-400">
+                    Complete payment record
+                  </p>
+                </div>
+
+                {/* Header Row */}
+                <div className="grid grid-cols-7 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
+                  <span>Description</span>
+                  <span>Amount</span>
+                  <span>Due Date</span>
+                  <span>Paid Date</span>
+                  <span>Status</span>
+                  <span>Payment Method</span>
+                  <span>Actions</span>
+                </div>
+
+                {/* Task Rows */}
+                <div className="space-y-2">
+                  {SAMPLE_TASK.map((task) => (
+                    <div
+                      key={task.id}
+                      className="grid grid-cols-7 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
+                    >
+                      <span className="text-center">{task.description}</span>
+                      <span className="text-center">₱{task.amount}</span>
+                      <span className="text-center">{task.dueDate}</span>
+                      <span className="text-center">{task.paidDate}</span>
+
+                      <div className="text-center">
+                        <span
+                          className={`w-[80px] h-[30px] text-center inline-block px-2 py-1 rounded-lg text-sm font-semibold border transition-all bg-blue-100 text-gray-700 border-blue-700 `}
+                        >
+                          {task.status}
+                        </span>
+                      </div>
+
+                      <span className="text-center text-gray-500">{task.paymentMethod}</span>
+
+                      {/* Download Action */}
+                      <div className="text-center">
+                        <a
+                          href="/admin_files/BOKUTO HEAD.jpg"
+                          download="BOKUTO HEAD.jpg"
+                          className="inline-block px-3 py-1 text-sm font-semibold text-blue-700 border border-blue-700 rounded-lg hover:bg-blue-700 hover:text-white transition-all"
+                        >
+                          Download
+                        </a>
+                      </div>
+
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
           </main>
         </div>
       </div>
-
-      {/* Add User Modal */}
-      <AddUser
-      show={showAddModal}
-      onClose={() => {
-        setShowAddModal(false);
-        handleClearForm();
-        setSelectedUser(null);
-      }}
-      onSave={handleSave}
-      onClear={handleClearForm}
-      userType={userType}
-      setUserType={setUserType}
-      firstName={firstName}
-      setFirstName={setFirstName}
-      lastName={lastName}
-      setLastName={setLastName}
-      birthDate={birthDate}
-      setBirthDate={setBirthDate}
-      phone={phone}
-      setPhone={setPhone}
-      email={email}
-      setEmail={setEmail}
-      occupation={occupation}
-      setOccupation={setOccupation}
-      password={password}
-      setPassword={setPassword}
-      confirmPassword={confirmPassword}
-      setConfirmPassword={setConfirmPassword}
-      street={street}
-      setStreet={setStreet}
-      province={province}
-      setProvince={setProvince}
-      city={city}
-      setCity={setCity}
-      zipCode={zipCode}
-      setZipCode={setZipCode}
-      handlePhoneChange={handlePhoneChange}
-    />
-
-
-      {/* Add User Modal */}
-      <EditUser
-      show={showEditModal}
-      onClose={() => {
-        setShowEditModal(false);
-        handleClearForm();
-        setSelectedUser(null); // clear selection when closing
-      }}
-      onSave={handleSave}
-      onClear={handleClearForm}
-      userType={userType}
-      setUserType={setUserType}
-      firstName={firstName}
-      setFirstName={setFirstName}
-      lastName={lastName}
-      setLastName={setLastName}
-      birthDate={birthDate}
-      setBirthDate={setBirthDate}
-      phone={phone}
-      setPhone={setPhone}
-      email={email}
-      setEmail={setEmail}
-      occupation={occupation}
-      setOccupation={setOccupation}
-      street={street}
-      setStreet={setStreet}
-      province={province}
-      setProvince={setProvince}
-      city={city}
-      setCity={setCity}
-      zipCode={zipCode}
-      setZipCode={setZipCode}
-      handlePhoneChange={handlePhoneChange}
-    />
-
     </div>
   );
 };
 
-export default UserMain;
+export default PaymentMoreInfo;

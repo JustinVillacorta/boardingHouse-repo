@@ -5,12 +5,12 @@ import SignIn from "./view_pages/manager/signIn";
 {/*Admin Path*/}
 import MainFrame from './view_pages/manager/mainFrame'; 
 import MainProjects from './view_pages/manager/users_main'; 
-import AssignTask from './view_pages/manager/projectTask';  
 import Rooms from './view_pages/manager/rooms'; 
-import Performance from './view_pages/manager/reports'; 
-import Settings from './view_pages/manager/settings';
-import WorkLogs from './view_pages/manager/payment';
+import Payment from './view_pages/manager/payment';
+import PaymentInfo from './view_pages/manager/paymentMoreInfo';
+import Report from './view_pages/manager/reports'; 
 import Notifications from './view_pages/manager/notifications'; 
+import Settings from './view_pages/manager/settings';
 
 {/* Tenant Path*/}
 import TenantFrame from './view_pages/tenant/tenantFrame';
@@ -31,10 +31,10 @@ const App: React.FC = () => {
         {/* Fallback: redirect unknown paths to root */}
         <Route path="/main" element={<MainFrame />} />
         <Route path="/main-projects" element={<MainProjects />} />
-        <Route path="/assign-task" element={<AssignTask />} />
         <Route path="/rooms" element={<Rooms />} />
-        <Route path="/work-logs" element={<WorkLogs/>}/>
-        <Route path="/performance" element={<Performance />} />
+        <Route path="/payments" element={<Payment/>}/>
+        <Route path="/payment-info" element={<PaymentInfo/>}/>
+        <Route path="/reports" element={<Report />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/notifications" element={<Notifications />} />
 

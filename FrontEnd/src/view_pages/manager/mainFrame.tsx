@@ -129,8 +129,8 @@ const Sidebar: React.FC = () => {
     { name: "Dashboard", icon: LayoutDashboard, path: "/main" },
     { name: "Users", icon: User, path: "/main-projects" },
     { name: "Rooms", icon: DoorOpen, path: "/rooms" },
-    { name: "Payment", icon: PhilippinePeso, path: "/work-logs" },
-    { name: "Reports", icon: Wrench, path: "/performance" },
+    { name: "Payment", icon: PhilippinePeso, path: "/payments" },
+    { name: "Reports", icon: Wrench, path: "/reports" },
     { name: "Notifications", icon: BellDot, path: "/notifications" },
     { name: "Logout", icon: LogOut, action: () => setShowLogoutConfirm(true) },
   ];

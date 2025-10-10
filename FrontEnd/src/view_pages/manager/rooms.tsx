@@ -129,8 +129,8 @@ const Sidebar: React.FC = () => {
     { name: "Dashboard", icon: LayoutDashboard, path: "/main" },
     { name: "Users", icon: User, path: "/main-projects" },
     { name: "Rooms", icon: DoorOpen, path: "/rooms" },
-    { name: "Payment", icon: PhilippinePeso, path: "/work-logs" },
-    { name: "Reports", icon: Wrench, path: "/performance" },
+    { name: "Payment", icon: PhilippinePeso, path: "/payments" },
+    { name: "Reports", icon: Wrench, path: "/reports" },
     { name: "Notifications", icon: BellDot, path: "/notifications" },
     { name: "Logout", icon: LogOut, action: () => setShowLogoutConfirm(true) },
   ];
@@ -575,7 +575,7 @@ const Rooms: React.FC = () => {
         <div className="w-full p-6"> 
           <div className="flex items-center justify-between mb-4">
             <button 
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold text-lg rounded-lg hover:bg-blue-700"
               onClick={handleAddRoomClick}
             >
               <Plus className="w-4 h-4"/>

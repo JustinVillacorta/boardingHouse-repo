@@ -15,7 +15,8 @@ import {
   Pause,
   Clock, 
   AlertCircle,
-  Calendar
+  Calendar,
+  CircleDashed
 } from 'lucide-react';
 
 
@@ -27,13 +28,13 @@ type StatusKey = "all" | "completed" | "maintenance" | "complaint" | "pending";
 const tasks = [
   {
     id: 1,
-    title: "Light Bulb",
-    description: "Bedroom light bulb needs replacement",
+    title: "Need Better Notifications Design",
+    description: "Your rent payment is due in 3 days",
     status: "pending",
     priority: "high",
     assignee: "Sarah Chen",
     dueDate: "2024-03-15",
-    progress: 50,
+    progress: "2 hours ago",
   },
   {
     id: 2,
@@ -43,37 +44,16 @@ const tasks = [
     priority: "high",
     assignee: "Mike Johnson",
     dueDate: "2024-03-20",
-    progress: 65,
+    progress: "14 hours ago",
   },
   {
     id: 3,
     title: "Leaky Faucet",
     description: "Bathroom faucet drips constantly.",
-    status: "maintenance",
     priority: "medium",
     assignee: "Alex Rivera",
     dueDate: "2024-03-25",
-    progress: 30,
-  },
-  {
-    id: 4,
-    title: "Loud Noise On Next Room",
-    description: "Noise complaint at room 382",
-    status: "complaint",
-    priority: "low",
-    assignee: "Mia Khalifa",
-    dueDate: "2024-03-30",
-    progress: 0,
-  },
-  {
-    id: 5,
-    title: "Broken Window",
-    description: "I can't close the window",
-    status: "completed",
-    priority: "low",
-    assignee: "Emma Watson",
-    dueDate: "2024-03-30",
-    progress: 100,
+    progress: "1 day ago",
   },
 ];
 
@@ -177,8 +157,8 @@ const Sidebar: React.FC = () => {
     { name: "Dashboard", icon: LayoutDashboard, path: "/main" },
     { name: "Users", icon: User, path: "/main-projects" },
     { name: "Rooms", icon: DoorOpen, path: "/rooms" },
-    { name: "Payment", icon: PhilippinePeso, path: "/work-logs" },
-    { name: "Reports", icon: Wrench, path: "/performance" },
+    { name: "Payment", icon: PhilippinePeso, path: "/payments" },
+    { name: "Reports", icon: Wrench, path: "/reports" },
     { name: "Notifications", icon: BellDot, path: "/notifications" },
     { name: "Logout", icon: LogOut, action: () => setShowLogoutConfirm(true) },
   ];
@@ -323,18 +303,6 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "high":
-      return "border-l-red-500";
-    case "medium":
-      return "border-l-yellow-500";
-    case "low":
-      return "border-l-green-500";
-    default:
-      return "border-l-gray-500";
-  }
-};  
 
 /* -------------------- MAIN REPORT COMPONENT -------------------- */
 const Notifications: React.FC = () => {
@@ -347,21 +315,6 @@ const Notifications: React.FC = () => {
     return task.status === activeFilter;
   });
 
-  const statusCounts: Record<StatusKey, number> = {
-    all: tasks.length,
-    completed: tasks.filter((t) => t.status === "completed").length,
-    "maintenance": tasks.filter((t) => t.status === "maintenance").length,
-    "complaint": tasks.filter((t) => t.status === "complaint").length,
-    pending: tasks.filter((t) => t.status === "pending").length,
-  };
-
-  const filters: { key: StatusKey; label: string }[] = [
-    { key: "all", label: "All Reports" },
-    { key: "completed", label: "Completed" },
-    { key: "maintenance", label: "Maintenance" },
-    { key: "complaint", label: "Complaint" },
-    { key: "pending", label: "Pending" },
-  ];
 
     return (
         <div className="flex h-screen bg-gray-50">
@@ -372,104 +325,17 @@ const Notifications: React.FC = () => {
                 {/* Main Content Area */}
                 <main className="flex-1 p-6 overflow-auto">
 
-                      {/* Quick Stats */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Total Projects</p>
-                              <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <AlertCircle className="w-4 h-4 text-blue-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Completed</p>
-                              <p className="text-2xl font-bold text-green-600">{statusCounts.completed}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">In Progress</p>
-                              <p className="text-2xl font-bold text-blue-600">{statusCounts['maintenance']}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Play className="w-4 h-4 text-blue-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Overdue</p>
-                              <p className="text-2xl font-bold text-red-600">3</p>
-                            </div>
-                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                              <Clock className="w-4 h-4 text-red-600" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Search and View Controls */}
-                      <div className="flex flex-col mb-6">
-                        {/* Search Bar */}
-                        <div className="flex-1">
-                            <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                placeholder="Search tasks..."
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            </div>
-                        </div>
-                      </div>
-
-                      {/* Status Filter Tabs */}
-                      <div className="flex gap-4 mb-6 border-b border-gray-200">
-                        {filters.map(filter => (
-                          <button
-                            key={filter.key}
-                            onClick={() => setActiveFilter(filter.key)}
-                            className={`pb-3 px-1 border-b-2 font-medium text-sm ${
-                              activeFilter === filter.key
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                          >
-                            {filter.label} ({statusCounts[filter.key]})
-                          </button>
-                        ))}
-                      </div>
-
                       {/* Task List */}
                       <div className="space-y-4">
                         {filteredTasks.map(task => (
                           <div
                             key={task.id}
-                            className={`bg-white rounded-lg shadow-sm border-l-4 ${getPriorityColor(task.priority)} p-6 hover:shadow-md transition-shadow`}
+                            className={`bg-white rounded-lg shadow-sm border-l-4 p-6 hover:shadow-md transition-shadow`}
                           >
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
-                                  {getStatusIcon(task.status)}
                                   <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                    {task.status.replace('-', ' ')}
-                                  </span>
                                 </div>
 
                                 <p className="text-gray-600 mb-4">{task.description}</p>
@@ -487,20 +353,16 @@ const Notifications: React.FC = () => {
 
                               </div>
 
-                              <div className="ml-6 text-right">
-                                <div className="text-sm text-gray-500 mb-2">Progress</div>
-                                <div className="w-32">
-                                  <div className="flex justify-between text-sm mb-1">
-                                    <span className="font-medium">{task.progress}%</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                      style={{ width: `${task.progress}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
+                              <div className="ml-6 flex items-center gap-2">
+                                {/* Dashed circle */}
+                                <CircleDashed className="text-blue-500" size={16} />
+
+                                {/* Progress text */}
+                                <span className="text-xs font-medium text-gray-700">
+                                  {task.progress}%
+                                </span>
                               </div>
+ 
                             </div>
                           </div>
                         ))}

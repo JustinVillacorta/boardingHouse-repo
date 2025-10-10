@@ -16,7 +16,7 @@ interface Task {
   id: string;
   roomnumber: string;
   assignee: string;
-  status: 'Occupied' | 'More Info';
+  status: string;
   dueDate: string;
 }
 
@@ -24,15 +24,22 @@ const SAMPLE_TASKS: Task[] = [
   {
     id: '1',
     roomnumber: '305',
-    assignee: 'Yaoh Ghori',
+    assignee: 'Randal Salvador',
     status: 'More Info',
     dueDate: '2024-01-15'
   },
   {
     id: '2',
     roomnumber: '273',
+    assignee: 'Yahori Usagi',
+    status: 'More Info',
+    dueDate: '2024-01-15'
+  },
+  {
+    id: '3',
+    roomnumber: '273',
     assignee: 'Sarah Wilson',
-    status: 'Occupied',
+    status: 'More Info',
     dueDate: '2024-01-15'
   },
 ];
@@ -137,8 +144,8 @@ const Sidebar: React.FC = () => {
     { name: "Dashboard", icon: LayoutDashboard, path: "/main" },
     { name: "Users", icon: User, path: "/main-projects" },
     { name: "Rooms", icon: DoorOpen, path: "/rooms" },
-    { name: "Payment", icon: PhilippinePeso, path: "/work-logs" },
-    { name: "Reports", icon: Wrench, path: "/performance" },
+    { name: "Payment", icon: PhilippinePeso, path: "/payments" },
+    { name: "Reports", icon: Wrench, path: "/reports" },
     { name: "Notifications", icon: BellDot, path: "/notifications" },
     { name: "Logout", icon: LogOut, action: () => setShowLogoutConfirm(true) },
   ];
@@ -253,6 +260,7 @@ const Sidebar: React.FC = () => {
 };
 
 const Payment: React.FC = () =>{
+  const navigate = useNavigate();
 
     return (
         <div className="flex h-screen bg-gray-50">
@@ -294,16 +302,12 @@ const Payment: React.FC = () =>{
                         <span className="text-center">{task.dueDate}</span>
 
                         {/* Role */}
-                        <span className="text-center">
-                          <span className={`w-24 text-center inline-block px-2 py-1 rounded-full text-sm font-semibold ${
-                                task.status === "More Info"
-                                  ? "bg-blue-200 text-black"
-                                  : "bg-green-200 text-black"
-                              }`} 
+                        <div className="text-center">
+                          <button onClick={() => navigate("/payment-info")} className={`w-24 text-center inline-block px-2 py-1 rounded-full text-sm font-semibold bg-gray-400 text-white hover:bg-gray-600 transition-all`} 
                           >
                             {task.status}
-                          </span>
-                        </span>
+                          </button>
+                        </div>
 
                       </div>
                     ))}
