@@ -69,20 +69,161 @@ export class ReportsRepositoryImpl implements ReportsRepository {
 
   async getMyReports(filters?: ReportFilters): Promise<Report[]> {
     try {
-      const params: Record<string, any> = {};
-      
-      if (filters?.status) params.status = filters.status;
-      if (filters?.type) params.type = filters.type;
-      if (filters?.page) params.page = filters.page;
-      if (filters?.limit) params.limit = filters.limit;
-      if (filters?.search) params.search = filters.search;
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300));
 
-      const response = await this.apiService.request('/reports/my', {
-        method: 'GET'
-      });
+      // Return static data for tenant reports
+      const staticReports: Report[] = [
+        {
+          _id: "1",
+          id: "1",
+          tenant: {
+            _id: "tenant1",
+            userId: {
+              _id: "user1",
+              username: "gelo",
+              email: "gelo@example.com",
+              role: "tenant",
+              isActive: true
+            },
+            firstName: "Gelo",
+            lastName: "User",
+            phoneNumber: "555-0101",
+            email: "gelo@example.com"
+          },
+          room: {
+            _id: "room1",
+            roomNumber: "203",
+            roomType: "Single Room",
+            isAvailable: false,
+            occupancyRate: 100
+          },
+          type: "maintenance",
+          title: "Light Bulb",
+          description: "Bedroom light bulb needs replacement",
+          status: "pending",
+          submittedAt: "2024-01-20T10:00:00Z",
+          updatedAt: "2024-01-20T10:00:00Z",
+          daysSinceSubmission: 5
+        },
+        {
+          _id: "2",
+          id: "2",
+          tenant: {
+            _id: "tenant1",
+            userId: {
+              _id: "user1",
+              username: "gelo",
+              email: "gelo@example.com",
+              role: "tenant",
+              isActive: true
+            },
+            firstName: "Gelo",
+            lastName: "User",
+            phoneNumber: "555-0101",
+            email: "gelo@example.com"
+          },
+          room: {
+            _id: "room1",
+            roomNumber: "203",
+            roomType: "Single Room",
+            isAvailable: false,
+            occupancyRate: 100
+          },
+          type: "maintenance",
+          title: "Air Conditioning",
+          description: "AC not cooling properly",
+          status: "in-progress",
+          submittedAt: "2024-01-15T14:30:00Z",
+          updatedAt: "2024-01-18T09:15:00Z",
+          daysSinceSubmission: 10
+        },
+        {
+          _id: "3",
+          id: "3",
+          tenant: {
+            _id: "tenant1",
+            userId: {
+              _id: "user1",
+              username: "gelo",
+              email: "gelo@example.com",
+              role: "tenant",
+              isActive: true
+            },
+            firstName: "Gelo",
+            lastName: "User",
+            phoneNumber: "555-0101",
+            email: "gelo@example.com"
+          },
+          room: {
+            _id: "room1",
+            roomNumber: "203",
+            roomType: "Single Room",
+            isAvailable: false,
+            occupancyRate: 100
+          },
+          type: "maintenance",
+          title: "Leaky Faucet",
+          description: "Bathroom faucet drips constantly",
+          status: "resolved",
+          submittedAt: "2024-01-10T08:00:00Z",
+          updatedAt: "2024-01-12T16:45:00Z",
+          daysSinceSubmission: 15
+        },
+        {
+          _id: "4",
+          id: "4",
+          tenant: {
+            _id: "tenant1",
+            userId: {
+              _id: "user1",
+              username: "gelo",
+              email: "gelo@example.com",
+              role: "tenant",
+              isActive: true
+            },
+            firstName: "Gelo",
+            lastName: "User",
+            phoneNumber: "555-0101",
+            email: "gelo@example.com"
+          },
+          room: {
+            _id: "room1",
+            roomNumber: "203",
+            roomType: "Single Room",
+            isAvailable: false,
+            occupancyRate: 100
+          },
+          type: "complaint",
+          title: "Loud Noise On Next Room",
+          description: "Noise complaint at room 382",
+          status: "pending",
+          submittedAt: "2024-01-20T22:00:00Z",
+          updatedAt: "2024-01-20T22:00:00Z",
+          daysSinceSubmission: 5
+        }
+      ];
+
+      // Apply filters if provided
+      let filteredReports = staticReports;
       
-      // The backend returns the data directly as an array
-      return Array.isArray(response.data) ? response.data : [];
+      if (filters?.status) {
+        filteredReports = filteredReports.filter(report => report.status === filters.status);
+      }
+      
+      if (filters?.type) {
+        filteredReports = filteredReports.filter(report => report.type === filters.type);
+      }
+      
+      if (filters?.search) {
+        const searchTerm = filters.search.toLowerCase();
+        filteredReports = filteredReports.filter(report => 
+          report.title.toLowerCase().includes(searchTerm) ||
+          report.description.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      return filteredReports;
     } catch (error) {
       console.error('Error fetching my reports:', error);
       throw new Error('Failed to fetch your reports');

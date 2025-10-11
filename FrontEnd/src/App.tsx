@@ -15,8 +15,13 @@ import Settings from './view_pages/manager/settings';
 import WorkLogs from './view_pages/manager/payment';
 import Notifications from './view_pages/manager/notifications'; 
 
-{/* Tenant Path*/}
-import TenantFrame from './view_pages/tenant/tenantFrame';
+{/* Tenant Path - New Clean Architecture Implementation */}
+import TenantLayout from './components/tenant/TenantLayout';
+import TenantDashboardPage from './features/tenant-dashboard/presentation/pages/TenantDashboardPage';
+import NotificationsPage from './features/tenant-notifications/presentation/pages/NotificationsPage';
+import PaymentsPage from './features/tenant-payments/presentation/pages/PaymentsPage';
+import ProfilePage from './features/tenant-profile/presentation/pages/ProfilePage';
+import TenantReportsPage from './features/reports/presentation/pages/TenantReportsPage';
 
 {/* Staff Path*/}
 import StaffFrame from './view_pages/staff/staffFrame';
@@ -75,12 +80,18 @@ const App: React.FC = () => {
             </ProtectedRoute>
           } />
 
-          {/* Tenant routes */}
+          {/* Tenant routes with nested routing */}
           <Route path="/tenant" element={
             <ProtectedRoute requiredRole="tenant">
-              <TenantFrame />
+              <TenantLayout />
             </ProtectedRoute>
-          } />
+          }>
+            <Route index element={<TenantDashboardPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="payments" element={<PaymentsPage />} />
+            <Route path="reports" element={<TenantReportsPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+          </Route>
 
           {/* Staff routes */}
           <Route path="/staff" element={
