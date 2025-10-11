@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import SignIn from "./view_pages/manager/signIn";
+import SignIn from "./back_up/signIn";
 
 {/*Admin Path*/}
 import MainFrame from './view_pages/manager/mainFrame'; 
@@ -17,7 +17,11 @@ import TenantFrame from './view_pages/tenant/tenantFrame';
 
 {/* Staff Path*/}
 import StaffFrame from './view_pages/staff/staffFrame';
-
+import StaffUsers from './view_pages/staff/staffUsers';
+import StaffRooms from './view_pages/staff/staffRooms';
+import StaffPayment from './view_pages/staff/staffPayment';
+import StaffReports from './view_pages/staff/staffReports';
+import StaffNotifications from './view_pages/staff/staffNotifications';
 
 const App: React.FC = () => {
   return (
@@ -43,6 +47,13 @@ const App: React.FC = () => {
 
         {/* Staff routes */}
         <Route path="/staff" element={<StaffFrame />} />
+        <Route path="/staff-rooms" element={<StaffRooms />} />
+        <Route path="/staff-payment" element={<StaffPayment />} />
+        <Route path="/staff-notifications" element={<StaffNotifications />} />
+        <Route path="/staff-reports" element={<StaffReports />} />
+        <Route path="/staff-users" element={<StaffUsers />} />
+
+      
         
         <Route path="*" element={<Navigate to="/signIn" replace />} />
       </Routes>

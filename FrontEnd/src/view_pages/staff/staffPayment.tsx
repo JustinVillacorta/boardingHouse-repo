@@ -1,37 +1,41 @@
-import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import {
+import React, { useState } from 'react';
+import { useNavigate, useLocation  } from 'react-router-dom';
+import { 
   Search,
-  Bell,
-  House,
-  Dot,
-  Clock,
-  TrendingUp,
+  User, 
   LayoutDashboard,
-  LogOut,
-  User,
-  Users,
   DoorOpen,
   PhilippinePeso,
   Wrench,
   BellDot,
-  Plus,
-  Building,
-  FileText,
-  DollarSign
-} from "lucide-react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+  LogOut,
+  Bell
+} from 'lucide-react';
+
+interface Task {
+  id: string;
+  roomnumber: string;
+  assignee: string;
+  status: 'Occupied' | 'More Info';
+  dueDate: string;
+}
+
+const SAMPLE_TASKS: Task[] = [
+  {
+    id: '1',
+    roomnumber: '305',
+    assignee: 'Yaoh Ghori',
+    status: 'More Info',
+    dueDate: '2024-01-15'
+  },
+  {
+    id: '2',
+    roomnumber: '273',
+    assignee: 'Sarah Wilson',
+    status: 'Occupied',
+    dueDate: '2024-01-15'
+  },
+];
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -52,10 +56,10 @@ const TopNavbar: React.FC = () => {
           onClick={() => navigate("/main")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
-            Dashboard
+            Payment
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            Your room info, payments Account status
+            Manage your account and preferences
           </p>
         </div>
 
@@ -248,204 +252,70 @@ const Sidebar: React.FC = () => {
   );
 };
 
-/* -------------------- DASHBOARD -------------------- */
-const workLogData = [
-  { name: "Occupied", value: 18, color: "#899effff" },
-  { name: "Vacant", value: 2, color: "#ff7575ff" }
-];
-/* -------------------- PERFORMANCE DATA -------------------- */
-type PaymentData = {
-  month: string;
-  collected: number;
-  overdue: number;
-};
+const Payment: React.FC = () =>{
 
-const SAMPLE_PAYMENTS: PaymentData[] = [
-  { month: "Jan", collected: 13500, overdue: 500 },
-  { month: "Feb", collected: 13200, overdue: 700 },
-  { month: "Mar", collected: 13800, overdue: 600 },
-  { month: "Apr", collected: 13000, overdue: 900 },
-];
+    return (
+        <div className="flex h-screen bg-gray-50">
+          <Sidebar />
+          <div className="flex-1 flex flex-col min-w-0 pl-64">
+            <TopNavbar />
+            
+          {/* ✅ Full width wrapper instead of max-w-7xl */}
+          <div className="w-full p-6"> 
 
-const Dashboard: React.FC = () => {
-  return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0 pl-64">
-        <TopNavbar />
-
-        {/* Dashboard Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
-          {/* Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-4">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                {/* Top row with text + icon */}
-                <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <House className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-medium font-medium text-gray-500">Total Rooms</p>
-                    <p className="text-2xl font-semibold text-gray-900">20</p>
-                  </div>
-                </div>
-
-                {/* Dots below */}
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                    <span className="text-medium font-semibold text-gray-700">18 Occupied</span>
-                    <Dot/>
-                    <span className="text-medium font-semibold text-gray-700">2 Vacant</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <p className="text-sm font-medium text-gray-500">Total Tenants</p>
-                          <p className="text-2xl font-semibold text-gray-900">18</p>
-                      </div>
-                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                          <Users className="w-6 h-6 text-green-600" />
-                      </div>
-                  </div>
-
-                  {/* Dots below */}
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                     <span className="text-medium font-semibold text-gray-700">Active Tenancies</span>
-                  </div> 
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <p className="text-sm font-medium text-gray-500">Monthly Revenue</p>
-                          <p className="text-2xl font-semibold text-gray-900">4</p>
-                      </div>
-                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                          <Clock className="w-6 h-6 text-orange-600" />
-                      </div>
-                  </div>
-
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                     <span className="text-medium font-semibold text-gray-700">82.0% Collected</span>
-                  </div> 
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <p className="text-sm font-medium text-gray-500">Maintenance Request</p>
-                          <p className="text-2xl font-semibold text-gray-900">3</p>
-                      </div>
-                      <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                          <TrendingUp className="w-6 h-6 text-purple-600" />
-                      </div>
-                  </div>
-
+            {/* Projects Content */}
+            <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
+              <div className="flex items-center justify-between mb-6 w-full">
+                {/* ✅ Big Box Wrapper */}
+                <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6">
                   
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                     <span className="text-medium font-semibold text-gray-700">Total Open Request</span>
-                  </div> 
-                </div>
+                  {/* ✅ Header Row */}
+                  <div className="grid grid-cols-4 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
+                    <span>Name</span>
+                    <span>Room Number</span>
+                    <span>Due Date</span>
+                    <span>Actions</span>
+                  </div>
 
-              </div>
-          </div>
-
-          {/* Row 1: Work Log + Performance */}
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            {/* Work Log Card */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-800">Occupancy Rate</h2>
-                <label htmlFor="performance-timeframe" className="sr-only">Select Timeframe</label>
-              </div>
-
-              {/* Flex container for Pie + Legend */}
-              <div className="flex items-center justify-center">
-                {/* Pie Chart */}
-                <div className="h-64 w-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={workLogData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={80}
-                        paddingAngle={0}
-                        dataKey="value"
+                  {/* ✅ Task Rows */}
+                  <div className="space-y-2">
+                    {SAMPLE_TASKS.map((task) => (
+                      <div
+                        key={task.id}
+                        className="grid grid-cols-4 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
                       >
-                        {workLogData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                        {/* Name */}
+                        <span className="text-center">{task.assignee}</span>
 
-                {/* Product List */}
-                <div className="ml-6 space-y-3">
-                  {workLogData.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between w-32">
-                      <div className="flex items-center space-x-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: item.color }}
-                        ></div>
-                        <span className="text-xs text-gray-600">{item.name}</span>
+                        {/* Room Number */}
+                        <span className="text-center">{task.roomnumber}</span>
+                        
+                        {/* Time Started */}
+                        <span className="text-center">{task.dueDate}</span>
+
+                        {/* Role */}
+                        <span className="text-center">
+                          <span className={`w-24 text-center inline-block px-2 py-1 rounded-full text-sm font-semibold ${
+                                task.status === "More Info"
+                                  ? "bg-blue-200 text-black"
+                                  : "bg-green-200 text-black"
+                              }`} 
+                          >
+                            {task.status}
+                          </span>
+                        </span>
+
                       </div>
-                      <span className="text-xs font-medium text-gray-800">{item.value}%</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            </main>
 
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Quick Actions</h2>
-              </div>
-              <p className="text-sm text-gray-500 mb-4">Common tasks and shortcuts</p>
-
-              <button className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-200 hover:bg-blue-600 hover:text-white text-black rounded-lg transition-colors">
-              <Plus className="w-5 h-5" />
-                <span className="font-medium">Add New Tenant</span>
-              </button> 
-              
-              <button className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-200 hover:bg-blue-600 hover:text-white text-black rounded-lg transition-colors">
-              <DollarSign className="w-5 h-5" />
-                <span className="font-medium">Record Payment</span>
-              </button> 
-
-              <button className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-200 hover:bg-blue-600 hover:text-white text-black rounded-lg transition-colors">
-              <FileText className="w-5 h-5" />
-                <span className="font-medium">Update Maintenance Request</span>
-              </button> 
-
-              <button className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-200 hover:bg-blue-600 hover:text-white text-black rounded-lg transition-colors">
-              <Building className="w-5 h-5" />
-                <span className="font-medium">Check Room Availability</span>
-              </button> 
-              
-            </div>
           </div>
-        </main>
+        </div>
       </div>
-    </div>
-  );
+    );
 };
 
-export default Dashboard;
+export default Payment;

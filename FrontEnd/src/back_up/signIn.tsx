@@ -253,7 +253,7 @@ export default function LoginPage() {
             <p className="text-sm text-blue-700">Password: password123</p>
 
             <p className="mt-6 text-sm text-blue-800 font-medium mb-2">Demo Credentials: (TENANT):</p>
-            <p className="text-sm text-blue-700">Email: user@gmail.com</p>
+            <p className="text-sm text-blue-700">Email: tenant@gmail.com</p>
             <p className="text-sm text-blue-700">Password: password123</p>
 
             <p className="mt-6 text-sm text-blue-800 font-medium mb-2">Demo Credentials: (STAFF):</p>

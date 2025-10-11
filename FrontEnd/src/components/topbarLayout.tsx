@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { Menu, Search, Bell } from "lucide-react";
+import { Search, Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/logo.png";
 
 interface TopNavbarProps {
   onMenuClick: () => void;
