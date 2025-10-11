@@ -226,6 +226,11 @@ class ApiService {
     return this.request(`/reports${queryString ? '?' + queryString : ''}`);
   }
 
+  async getMyReports(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/reports/my${queryString ? '?' + queryString : ''}`);
+  }
+
   async createReport(reportData) {
     return this.request('/reports', {
       method: 'POST',

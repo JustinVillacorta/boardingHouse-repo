@@ -124,7 +124,7 @@ const TenantReportsPage: React.FC = () => {
               </div>
               <div className="mt-4">
                 <button
-                  onClick={refresh}
+                  onClick={() => refresh()}
                   className="bg-red-100 hover:bg-red-200 text-red-800 px-4 py-2 rounded-md text-sm font-medium"
                 >
                   Try Again
@@ -170,7 +170,7 @@ const TenantReportsPage: React.FC = () => {
 
           {/* Reports List */}
           <div className="space-y-4">
-            {reports.length === 0 ? (
+            {!Array.isArray(reports) || reports.length === 0 ? (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Wrench className="w-8 h-8 text-gray-400" />
@@ -185,7 +185,7 @@ const TenantReportsPage: React.FC = () => {
                 </button>
               </div>
             ) : (
-              reports.map((report) => (
+              Array.isArray(reports) && reports.map((report) => (
                 <div key={report.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -220,7 +220,7 @@ const TenantReportsPage: React.FC = () => {
           <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl mx-4">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-900">
-                Submit Maintenance Request
+                Submit Report
               </h2>
               <button
                 onClick={handleCloseModal}
@@ -233,25 +233,11 @@ const TenantReportsPage: React.FC = () => {
             </div>
 
             <p className="text-gray-600 mb-6">
-              Please provide detailed information about the maintenance issue you're experiencing.
+              Please provide detailed information about the issue you're reporting.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Request Details
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    placeholder="Brief summary of the issue (e.g., Leaky Faucet)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                </div>
-
+              <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Category
@@ -269,76 +255,31 @@ const TenantReportsPage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Location
+                    Request Details
                   </label>
                   <input
                     type="text"
-                    placeholder="Where is the issue? (e.g., bathroom, kitchen)"
+                    value={formData.title}
+                    onChange={(e) => handleInputChange('title', e.target.value)}
+                    placeholder="Brief summary of the issue (e.g., Leaky Faucet)"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Preferred Time
+                    Description
                   </label>
-                  <input
-                    type="text"
-                    placeholder="When can we access your room?"
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    placeholder="Please provide detailed information about the issue you're experiencing."
+                    rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Contact Information
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="+63 (9xxx-xxx-xxxx)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Expected Cost Range (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., ₱500, etc."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  placeholder="Please provide detailed information about the maintenance issue you're experiencing."
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Attachment (Optional)
-                </label>
-                <button
-                  type="button"
-                  className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                  Upload
-                </button>
               </div>
 
               <div className="flex justify-end gap-3">
