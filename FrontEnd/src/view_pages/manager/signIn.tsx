@@ -226,19 +226,6 @@ export default function LoginPage() {
             )}
           </form>
 
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <p className="text-sm text-blue-800 font-medium mb-2">Demo Credentials (ADMIN):</p>
-            <p className="text-sm text-blue-700">Email: admin@gmail.com</p>
-            <p className="text-sm text-blue-700">Password: password123</p>
-
-            <p className="mt-6 text-sm text-blue-800 font-medium mb-2">Demo Credentials: (TENANT):</p>
-            <p className="text-sm text-blue-700">Email: user@gmail.com</p>
-            <p className="text-sm text-blue-700">Password: password123</p>
-
-            <p className="mt-6 text-sm text-blue-800 font-medium mb-2">Demo Credentials: (STAFF):</p>
-            <p className="text-sm text-blue-700">Email: staff@gmail.com</p>
-            <p className="text-sm text-blue-700">Password: password123</p>
-          </div>
         </div>
       </div>
     </div>

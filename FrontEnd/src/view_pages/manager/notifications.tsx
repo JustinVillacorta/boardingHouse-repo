@@ -346,8 +346,6 @@ const getPriorityColor = (priority: string) => {
 /* -------------------- MAIN REPORT COMPONENT -------------------- */
 const Notifications: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<StatusKey>("all");
-  const [viewMode, setViewMode] = useState<"list" | "board">("list");
-  const navigate = useNavigate();
 
   const filteredTasks = tasks.filter((task) => {
     if (activeFilter === "all") return true;
@@ -495,17 +493,17 @@ const Notifications: React.FC = () => {
                               </div>
 
                               <div className="ml-6 text-right">
-                                <div className="text-sm text-gray-500 mb-2">Progress</div>
-                                <div className="w-32">
-                                  <div className="flex justify-between text-sm mb-1">
-                                    <span className="font-medium">{task.progress}%</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                      style={{ width: `${task.progress}%` }}
-                                    ></div>
-                                  </div>
+                                <div className="text-sm text-gray-500 mb-2">Priority</div>
+                                <div className="flex flex-col items-end">
+                                  <span className={`px-3 py-2 rounded-lg text-sm font-medium border ${
+                                    task.priority === 'high' 
+                                      ? 'bg-red-50 text-red-800 border-red-200'
+                                      : task.priority === 'medium'
+                                      ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
+                                      : 'bg-green-50 text-green-800 border-green-200'
+                                  }`}>
+                                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                                  </span>
                                 </div>
                               </div>
                             </div>

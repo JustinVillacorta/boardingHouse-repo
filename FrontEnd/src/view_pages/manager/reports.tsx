@@ -12,10 +12,11 @@ import {
   User,
   CheckCircle, 
   Play, 
-  Pause,
   Clock, 
   AlertCircle,
-  Calendar
+  Calendar,
+  X,
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from "../../contexts/AuthContext";
 import { useReports } from "../../features/reports";
@@ -245,6 +246,129 @@ const Sidebar: React.FC = () => {
   );
 };
 
+/* -------------------- STATUS DROPDOWN COMPONENT -------------------- */
+interface StatusDropdownProps {
+  currentStatus: string;
+  onStatusChange: (newStatus: ReportStatus) => void;
+}
+
+const StatusDropdown: React.FC<StatusDropdownProps> = ({ 
+  currentStatus, 
+  onStatusChange 
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const statusOptions = [
+    { 
+      value: 'pending', 
+      label: 'Pending', 
+      icon: <Clock className="w-4 h-4" />, 
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
+      hoverColor: 'hover:bg-orange-100'
+    },
+    { 
+      value: 'in-progress', 
+      label: 'In Progress', 
+      icon: <Play className="w-4 h-4" />, 
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      hoverColor: 'hover:bg-blue-100'
+    },
+    { 
+      value: 'resolved', 
+      label: 'Resolved', 
+      icon: <CheckCircle className="w-4 h-4" />, 
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      hoverColor: 'hover:bg-green-100'
+    },
+    { 
+      value: 'rejected', 
+      label: 'Rejected', 
+      icon: <X className="w-4 h-4" />, 
+      color: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      hoverColor: 'hover:bg-red-100'
+    }
+  ];
+
+  const currentOption = statusOptions.find(option => option.value === currentStatus);
+
+  const handleOptionClick = (status: string) => {
+    onStatusChange(status as ReportStatus);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      {/* Dropdown Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`
+          w-full px-3 py-2 rounded-lg border-2 transition-all duration-200
+          flex items-center justify-between gap-2 min-w-[140px]
+          ${currentOption?.bgColor} ${currentOption?.borderColor} ${currentOption?.color}
+          hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50
+          transform active:scale-95
+        `}
+      >
+        <div className="flex items-center gap-2">
+          {currentOption?.icon}
+          <span className="font-semibold text-sm">{currentOption?.label}</span>
+        </div>
+        <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 z-10" 
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Menu */}
+          <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-200 z-20 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+            <div className="py-1">
+              {statusOptions.map((option, index) => (
+                <button
+                  key={option.value}
+                  onClick={() => handleOptionClick(option.value)}
+                  className={`
+                    w-full px-4 py-3 flex items-center gap-3 text-left transition-all duration-200
+                    ${option.color} ${option.hoverColor}
+                    ${option.value === currentStatus ? `${option.bgColor} font-semibold shadow-sm` : 'hover:bg-gray-50 hover:pl-5'}
+                    ${index === 0 ? 'rounded-t-lg' : ''}
+                    ${index === statusOptions.length - 1 ? 'rounded-b-lg' : ''}
+                    hover:shadow-sm
+                  `}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className={`p-1 rounded-full ${option.bgColor} ${option.borderColor} border`}>
+                    {option.icon}
+                  </div>
+                  <span className="text-sm font-medium">{option.label}</span>
+                  {option.value === currentStatus && (
+                    <div className="ml-auto">
+                      <CheckCircle className="w-4 h-4 opacity-70" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 /* -------------------- HELPERS -------------------- */
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -255,7 +379,7 @@ const getStatusIcon = (status: string) => {
     case "pending":
       return <Clock className="w-4 h-4 text-orange-500" />;
     case "rejected":
-      return <Pause className="w-4 h-4 text-red-500" />;
+      return <X className="w-4 h-4 text-red-500" />;
     default:
       return <AlertCircle className="w-4 h-4 text-gray-500" />;
   }
@@ -513,26 +637,10 @@ const Report: React.FC = () => {
 
                               <div className="ml-6 text-right">
                                 <div className="text-sm text-gray-500 mb-2">Status</div>
-                                <div className="w-32">
-                                  <select
-                                    value={report.status}
-                                    onChange={(e) => handleStatusUpdate(report._id, e.target.value as ReportStatus)}
-                                    className={`w-full px-2 py-1 rounded text-xs font-medium border ${
-                                      report.status === 'resolved' 
-                                        ? 'bg-green-100 text-green-800 border-green-200' 
-                                        : report.status === 'in-progress' 
-                                        ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                        : report.status === 'pending'
-                                        ? 'bg-orange-100 text-orange-800 border-orange-200'
-                                        : 'bg-red-100 text-red-800 border-red-200'
-                                    }`}
-                                  >
-                                    <option value="pending">Pending</option>
-                                    <option value="in-progress">In Progress</option>
-                                    <option value="resolved">Resolved</option>
-                                    <option value="rejected">Rejected</option>
-                                  </select>
-                                </div>
+                                <StatusDropdown
+                                  currentStatus={report.status}
+                                  onStatusChange={(newStatus) => handleStatusUpdate(report._id, newStatus)}
+                                />
                               </div>
                             </div>
                           </div>

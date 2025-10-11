@@ -8,7 +8,7 @@ export interface Room {
   amenities: string[];
   floor?: number;
   area?: number;
-  status: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  status: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
   isAvailable: boolean;
   currentTenants?: string[];
   occupancy: {
@@ -41,7 +41,7 @@ export interface CreateRoomRequest {
   amenities?: string[];
   floor?: number;
   area?: number;
-  status?: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  status?: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
 }
 
 export interface UpdateRoomRequest {
@@ -53,11 +53,11 @@ export interface UpdateRoomRequest {
   amenities?: string[];
   floor?: number;
   area?: number;
-  status?: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  status?: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
 }
 
 export interface RoomFilters {
-  status?: 'available' | 'occupied' | 'maintenance' | 'reserved';
+  status?: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
   roomType?: 'single' | 'double' | 'shared' | 'suite';
   minRent?: number;
   maxRent?: number;
@@ -74,6 +74,7 @@ export interface RoomStatistics {
     occupiedRooms: number;
     maintenanceRooms: number;
     reservedRooms: number;
+    unavailableRooms: number;
   };
   occupancy: {
     totalCapacity: number;
