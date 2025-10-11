@@ -1,6 +1,8 @@
 const tenantRepository = require('../repositories/tenantRepository');
 const userRepository = require('../repositories/userRepository');
 const { generateAccessToken } = require('../utils/jwt');
+const emailService = require('../utils/emailService');
+const config = require('../config/config');
 
 class TenantService {
   // Create new tenant with user account (combined registration)
@@ -72,24 +74,62 @@ class TenantService {
     }
   }
 
-  // Create new tenant profile (requires existing user with tenant role)
+  // Create new tenant profile (creates user account + tenant profile with OTP)
   async createTenant(tenantData, userId = null) {
     try {
-      // If userId is provided, use it; otherwise expect userId in tenantData
-      const targetUserId = userId || tenantData.userId;
+      const { email, firstName, lastName, phoneNumber, dateOfBirth, idType, idNumber, emergencyContact, roomNumber, monthlyRent, securityDeposit } = tenantData;
       
-      if (!targetUserId) {
-        throw new Error('User ID is required to create tenant profile');
-      }
+      // If userId is provided, use it; otherwise create new user account
+      let targetUserId = userId;
+      let user;
+      
+      console.log('createTenant called with userId:', userId, 'email:', email);
+      console.log('targetUserId is null/undefined:', targetUserId === null || targetUserId === undefined);
+      
+      // If we have an email but no valid userId, create new user
+      if (email && !targetUserId) {
+        // Check if user already exists
+        const existingUserByEmail = await userRepository.findByEmail(email);
+        if (existingUserByEmail) {
+          throw new Error('User with this email already exists');
+        }
 
-      // Verify user exists and has tenant role
-      const user = await userRepository.findById(targetUserId);
-      if (!user) {
-        throw new Error('User not found');
-      }
+        // Generate username from email
+        const emailPrefix = email.split('@')[0];
+        let username = `${emailPrefix}_${Date.now().toString().slice(-4)}`;
+        
+        // Check if generated username already exists
+        const existingUserByUsername = await userRepository.findByUsername(username);
+        if (existingUserByUsername) {
+          username = `${username}_${Date.now().toString().slice(-4)}`;
+        }
 
-      if (user.role !== 'tenant') {
-        throw new Error('User must have tenant role to create tenant profile');
+        // Generate verification token
+        const verificationToken = emailService.generateVerificationToken();
+        const verificationTokenExpiry = new Date(Date.now() + config.VERIFICATION_TOKEN_EXPIRY);
+
+        // Create user account (unverified)
+        user = await userRepository.create({
+          username,
+          email,
+          role: 'tenant',
+          isActive: false,
+          isVerified: false,
+          verificationToken,
+          verificationTokenExpiry,
+        });
+        
+        targetUserId = user._id;
+      } else {
+        // Verify existing user exists and has tenant role
+        user = await userRepository.findById(targetUserId);
+        if (!user) {
+          throw new Error('User not found');
+        }
+
+        if (user.role !== 'tenant') {
+          throw new Error('User must have tenant role to create tenant profile');
+        }
       }
 
       // Check if tenant profile already exists for this user
@@ -99,8 +139,8 @@ class TenantService {
       }
 
       // Check if room number is available (if provided)
-      if (tenantData.roomNumber) {
-        const isRoomAvailable = await tenantRepository.isRoomNumberAvailable(tenantData.roomNumber);
+      if (roomNumber) {
+        const isRoomAvailable = await tenantRepository.isRoomNumberAvailable(roomNumber);
         if (!isRoomAvailable) {
           throw new Error('Room number is already occupied');
         }
@@ -108,11 +148,48 @@ class TenantService {
 
       // Create tenant profile
       const tenant = await tenantRepository.create({
-        ...tenantData,
         userId: targetUserId,
+        firstName,
+        lastName,
+        phoneNumber,
+        dateOfBirth,
+        idType,
+        idNumber,
+        emergencyContact,
+        roomNumber,
+        monthlyRent,
+        securityDeposit,
       });
 
-      return this.formatTenantResponse(tenant);
+      // Send verification email (only if we created a new user)
+      if (!userId) {
+        emailService.sendVerificationEmail(email, user.verificationToken, 'tenant', {
+          firstName,
+          roomNumber,
+          monthlyRent
+        })
+          .then(() => {
+            console.log(`Verification email sent to ${email}`);
+          })
+          .catch((error) => {
+            console.error(`Failed to send verification email to ${email}:`, error.message);
+            console.log(`MANUAL VERIFICATION TOKEN for ${email}: ${user.verificationToken}`);
+          });
+      }
+
+      return {
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          isVerified: user.isVerified,
+          createdAt: user.createdAt,
+        },
+        tenant: this.formatTenantResponse(tenant),
+        message: userId ? 'Tenant profile created successfully' : 'Tenant created successfully. Activation email sent to ' + email
+      };
     } catch (error) {
       throw error;
     }

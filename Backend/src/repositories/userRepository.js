@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const bcrypt = require('bcrypt');
+const config = require('../config/config');
 
 class UserRepository {
   // Create a new user
@@ -23,7 +25,7 @@ class UserRepository {
   // Find user by email
   async findByEmail(email) {
     try {
-      return await User.findOne({ email }).select('+password');
+      return await User.findOne({ email }).select('+password +verificationToken +verificationTokenExpiry');
     } catch (error) {
       throw error;
     }
@@ -52,10 +54,29 @@ class UserRepository {
   // Update user
   async update(id, updateData) {
     try {
-      return await User.findByIdAndUpdate(id, updateData, {
-        new: true,
-        runValidators: true,
-      });
+      // If password is being updated, we need to use save() to trigger pre-save middleware
+      if (updateData.password) {
+        const user = await User.findById(id);
+        if (!user) {
+          throw new Error('User not found');
+        }
+        
+        // Set the raw password - pre-save middleware will hash it
+        user.password = updateData.password;
+        user.isVerified = updateData.isVerified !== undefined ? updateData.isVerified : user.isVerified;
+        user.isActive = updateData.isActive !== undefined ? updateData.isActive : user.isActive;
+        
+        // Mark password as modified to ensure pre-save middleware runs
+        user.markModified('password');
+        
+        return await user.save();
+      } else {
+        // For non-password updates, use findByIdAndUpdate
+        return await User.findByIdAndUpdate(id, updateData, {
+          new: true,
+          runValidators: true,
+        });
+      }
     } catch (error) {
       throw error;
     }
@@ -112,6 +133,46 @@ class UserRepository {
   async findByRoles(roles) {
     try {
       return await User.find({ role: { $in: roles } });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Find user by verification token
+  async findByVerificationToken(token) {
+    try {
+      return await User.findOne({ 
+        verificationToken: token,
+        verificationTokenExpiry: { $gt: new Date() } // Token not expired
+      }).select('+verificationToken +verificationTokenExpiry');
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Update user verification status
+  async updateVerificationStatus(userId, isVerified, clearToken = true) {
+    try {
+      const updateData = { isVerified };
+      if (clearToken) {
+        updateData.verificationToken = undefined;
+        updateData.verificationTokenExpiry = undefined;
+      }
+      
+      // Use $unset to clear verification fields without overwriting other fields
+      const unsetData = {};
+      if (clearToken) {
+        unsetData.verificationToken = 1;
+        unsetData.verificationTokenExpiry = 1;
+      }
+      
+      return await User.findByIdAndUpdate(userId, {
+        $set: updateData,
+        $unset: unsetData
+      }, {
+        new: true,
+        runValidators: true,
+      });
     } catch (error) {
       throw error;
     }

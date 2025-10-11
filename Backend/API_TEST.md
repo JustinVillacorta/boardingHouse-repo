@@ -2,12 +2,94 @@
 
 ## Test the authentication and tenant management endpoints
 
+> **📋 Postman Collection Available**: Import `Email_Verification_Test.postman_collection.json` for automated testing with pre-configured requests and variables.
+
 ### 1. Test server status
 ```bash
-curl http://localhost:5000/api/health
+curl http://localhost:8000/api/health
 ```
 
-### 2. Register users for testing
+### 2. Admin-Created Tenant Accounts with OTP Activation (NEW)
+
+This is the new flow where admin creates complete tenant profiles and sends OTP for activation:
+
+#### 2.1. Admin Login
+```bash
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "identifier": "admin",
+    "password": "Admin123"
+  }'
+```
+
+#### 2.2. Admin Creates Tenant Profile (Complete Profile + OTP Email)
+```bash
+curl -X POST http://localhost:8000/api/tenants \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -d '{
+    "email": "newtenant@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "phoneNumber": "1234567890",
+    "dateOfBirth": "1990-01-01",
+    "idType": "passport",
+    "idNumber": "P123456789",
+    "emergencyContact": {
+      "name": "Jane Doe",
+      "relationship": "Sister",
+      "phoneNumber": "9876543210"
+    },
+    "roomNumber": "101",
+    "monthlyRent": 500,
+    "securityDeposit": 1000
+  }'
+```
+
+**Response:**
+- Creates user account (unverified)
+- Creates tenant profile
+- Generates 6-digit OTP
+- Sends email with OTP and tenant details
+- Returns user and tenant info
+
+#### 2.3. Tenant Activates Account with OTP
+```bash
+curl -X POST http://localhost:8000/api/auth/activate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "newtenant@example.com",
+    "token": "123456",
+    "password": "TenantPassword123",
+    "confirmPassword": "TenantPassword123"
+  }'
+```
+
+**Response:**
+- Validates OTP
+- Sets password (hashed)
+- Activates account
+- Returns JWT token for immediate login
+
+#### 2.4. Tenant Login
+```bash
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "identifier": "newtenant@example.com",
+    "password": "TenantPassword123"
+  }'
+```
+
+#### 2.5. Resend Verification Email (Admin Only)
+```bash
+curl -X POST http://localhost:8000/api/auth/resend-verification/USER_ID \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+### 3. Register users for testing (Legacy)
 ```bash
 # Register admin user
 curl -X POST http://localhost:5000/api/auth/register \

@@ -25,7 +25,9 @@ const UserSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: function() {
+        return this.isVerified; // Only required if account is verified
+      },
       minlength: [6, 'Password must be at least 6 characters long'],
       select: false, // Don't include password in queries by default
     },
@@ -38,6 +40,20 @@ const UserSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    isVerified: {
+      type: Boolean,
+      default: function() {
+        return this.role === 'admin'; // Auto-verify admin accounts
+      },
+    },
+    verificationToken: {
+      type: String,
+      select: false, // Don't include in queries by default
+    },
+    verificationTokenExpiry: {
+      type: Date,
+      select: false, // Don't include in queries by default
     },
     lastLogin: {
       type: Date,
@@ -67,6 +83,11 @@ UserSchema.virtual('isLocked').get(function () {
   return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
+// Virtual for account activation status
+UserSchema.virtual('isActivated').get(function () {
+  return this.isActive && this.isVerified;
+});
+
 // Pre-save middleware to hash password
 UserSchema.pre('save', async function (next) {
   // Only hash the password if it has been modified (or is new)
@@ -80,6 +101,16 @@ UserSchema.pre('save', async function (next) {
   } catch (error) {
     next(error);
   }
+});
+
+// Pre-save middleware to auto-verify admin accounts
+UserSchema.pre('save', function (next) {
+  // Auto-verify admin accounts
+  if (this.role === 'admin') {
+    this.isVerified = true;
+    this.isActive = true;
+  }
+  next();
 });
 
 // Method to compare password
@@ -115,6 +146,9 @@ UserSchema.methods.resetLoginAttempts = function () {
     $set: { lastLogin: new Date() },
   });
 };
+
+// Create index for verification token
+UserSchema.index({ verificationToken: 1 });
 
 // Note: Indexes for email and username are automatically created by the 'unique: true' option
 // No need for manual index creation since they already have unique constraints

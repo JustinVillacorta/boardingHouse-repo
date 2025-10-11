@@ -1,0 +1,375 @@
+{
+  "info": {
+    "name": "Boarding House API - Complete Tenant Flow",
+    "description": "Complete end-to-end testing of admin-created tenant accounts with OTP activation and profile creation in one step",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenantToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "verificationToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenantUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenantEmail",
+      "value": "testtenant@example.com",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "health"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Admin Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    if (response.success && response.data.token) {",
+              "        pm.collectionVariables.set('adminToken', response.data.token);",
+              "        console.log('Admin token saved:', response.data.token);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identifier\": \"admin@boardinghouse.com\",\n  \"password\": \"Admin123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "login"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Create Complete Tenant Profile (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    const response = pm.response.json();",
+              "    if (response.success && response.data.user && response.data.tenant) {",
+              "        pm.collectionVariables.set('tenantUserId', response.data.user.id);",
+              "        console.log('Complete tenant profile created!');",
+              "        console.log('User ID:', response.data.user.id);",
+              "        console.log('Tenant ID:', response.data.tenant.id);",
+              "        console.log('Check server logs for 6-digit OTP!');",
+              "    }",
+              "} else {",
+              "    console.log('Tenant creation failed:', pm.response.text());",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{tenantEmail}}\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"phoneNumber\": \"1234567890\",\n  \"dateOfBirth\": \"1990-01-01\",\n  \"idType\": \"passport\",\n  \"idNumber\": \"P123456789\",\n  \"emergencyContact\": {\n    \"name\": \"Jane Doe\",\n    \"relationship\": \"Sister\",\n    \"phoneNumber\": \"9876543210\"\n  },\n  \"roomNumber\": \"101\",\n  \"monthlyRent\": 500,\n  \"securityDeposit\": 1000\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/tenants",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tenants"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Get Verification Token (Manual)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/debug/verification-token/{{tenantEmail}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "debug", "verification-token", "{{tenantEmail}}"]
+        },
+        "description": "This endpoint doesn't exist - you need to check server logs or database manually for the 6-digit token"
+      },
+      "response": []
+    },
+    {
+      "name": "5. Activate Tenant Account",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    if (response.success && response.data.token) {",
+              "        pm.collectionVariables.set('tenantToken', response.data.token);",
+              "        console.log('Tenant token saved:', response.data.token);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{tenantEmail}}\",\n  \"token\": \"{{verificationToken}}\",\n  \"password\": \"TenantPassword123\",\n  \"confirmPassword\": \"TenantPassword123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/activate",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "activate"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6. Tenant Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    if (response.success && response.data.token) {",
+              "        pm.collectionVariables.set('tenantToken', response.data.token);",
+              "        console.log('Tenant login successful, token updated');",
+              "    }",
+              "} else {",
+              "    console.log('Login failed:', pm.response.text());",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"identifier\": \"{{tenantEmail}}\",\n  \"password\": \"TenantPassword123\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "login"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7. Get Tenant Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{tenantToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tenants/profile",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tenants", "profile"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "8. Get All Tenants (Admin)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/tenants",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tenants"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "9. Create Staff Account (Admin)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    const response = pm.response.json();",
+              "    console.log('Staff account created:', response.data);",
+              "    console.log('Check server logs for verification token!');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"staff@example.com\",\n  \"role\": \"staff\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/create-account",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "create-account"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "10. Resend Verification Email (Admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/resend-verification/{{tenantUserId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "resend-verification", "{{tenantUserId}}"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "11. Complete Flow Test - Create Another Tenant",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "    const response = pm.response.json();",
+              "    console.log('Second tenant created successfully!');",
+              "    console.log('User ID:', response.data.user.id);",
+              "    console.log('Tenant ID:', response.data.tenant.id);",
+              "    console.log('Check server logs for 6-digit OTP for second tenant!');",
+              "} else {",
+              "    console.log('Second tenant creation failed:', pm.response.text());",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{adminToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"tenant2@example.com\",\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"phoneNumber\": \"9876543210\",\n  \"dateOfBirth\": \"1995-05-15\",\n  \"idType\": \"drivers_license\",\n  \"idNumber\": \"DL987654321\",\n  \"emergencyContact\": {\n    \"name\": \"Bob Smith\",\n    \"relationship\": \"Brother\",\n    \"phoneNumber\": \"1234567890\"\n  },\n  \"roomNumber\": \"102\",\n  \"monthlyRent\": 600,\n  \"securityDeposit\": 1200\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/tenants",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "tenants"]
+        }
+      },
+      "response": []
+    }
+  ]
+}

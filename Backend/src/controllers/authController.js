@@ -199,6 +199,86 @@ class AuthController {
       return sendServerError(res, 'Failed to retrieve users');
     }
   }
+
+  // Create user account by admin (with email verification)
+  async createUserAccount(req, res) {
+    try {
+      // Check validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return sendError(res, 'Validation failed', 400, {
+          errors: errors.array(),
+        });
+      }
+
+      const { email, role, username } = req.body;
+      const result = await authService.createUserAccountByAdmin({
+        email,
+        role,
+        username,
+      });
+
+      return sendCreated(res, result.message, result.user);
+    } catch (error) {
+      console.error('Create user account error:', error);
+      
+      if (error.message.includes('already exists')) {
+        return sendError(res, error.message, 409);
+      }
+      
+      return sendServerError(res, 'Failed to create user account');
+    }
+  }
+
+  // Activate user account with verification token
+  async activateAccount(req, res) {
+    try {
+      // Check validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return sendError(res, 'Validation failed', 400, {
+          errors: errors.array(),
+        });
+      }
+
+      const { email, token, password } = req.body;
+      const result = await authService.activateUserAccount(email, token, password);
+
+      return sendSuccess(res, result.message, {
+        user: result.user,
+        token: result.token,
+      });
+    } catch (error) {
+      console.error('Activate account error:', error);
+      
+      if (error.message.includes('Invalid or expired verification token')) {
+        return sendError(res, error.message, 400);
+      }
+      
+      return sendServerError(res, 'Failed to activate account');
+    }
+  }
+
+  // Resend verification email (admin only)
+  async resendVerificationEmail(req, res) {
+    try {
+      const { userId } = req.params;
+      const result = await authService.resendVerification(userId);
+
+      return sendSuccess(res, result.message);
+    } catch (error) {
+      console.error('Resend verification email error:', error);
+      
+      if (
+        error.message.includes('not found') ||
+        error.message.includes('already verified')
+      ) {
+        return sendError(res, error.message, 400);
+      }
+      
+      return sendServerError(res, 'Failed to resend verification email');
+    }
+  }
 }
 
 module.exports = new AuthController();

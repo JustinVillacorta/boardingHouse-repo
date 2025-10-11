@@ -197,6 +197,25 @@ const validateTenantRegister = [
 
 // Validation rules for tenant creation
 const validateTenantCreate = [
+  // Email validation (required if userId not provided)
+  body('email')
+    .optional()
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail()
+    .custom((value, { req }) => {
+      if (!value && !req.body.userId) {
+        throw new Error('Email is required when userId is not provided');
+      }
+      return true;
+    }),
+
+  // UserId validation (optional - will be created if not provided)
+  body('userId')
+    .optional()
+    .isMongoId()
+    .withMessage('User ID must be a valid MongoDB ObjectId'),
+
   body('firstName')
     .notEmpty()
     .withMessage('First name is required')
@@ -1057,6 +1076,53 @@ const validateNotificationBroadcast = [
     .toDate(),
 ];
 
+// Validation rules for admin account creation
+const validateAdminCreateAccount = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+  
+  body('role')
+    .isIn(['staff', 'tenant'])
+    .withMessage('Role must be staff or tenant'),
+  
+  body('username')
+    .optional()
+    .isLength({ min: 3, max: 30 })
+    .withMessage('Username must be between 3 and 30 characters')
+    .matches(/^[a-zA-Z0-9_-]+$/)
+    .withMessage('Username can only contain letters, numbers, underscores, and hyphens'),
+];
+
+// Validation rules for account activation
+const validateAccountActivation = [
+  body('email')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
+
+  body('token')
+    .isLength({ min: 6, max: 6 })
+    .withMessage('Verification token must be exactly 6 characters')
+    .matches(/^[0-9]+$/)
+    .withMessage('Verification token must contain only numbers'),
+  
+  body('password')
+    .isLength({ min: 6 })
+    .withMessage('Password must be at least 6 characters long')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number'),
+  
+  body('confirmPassword')
+    .custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error('Password confirmation does not match password');
+      }
+      return true;
+    }),
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
@@ -1086,4 +1152,7 @@ module.exports = {
   // Notification validations
   validateNotificationCreate,
   validateNotificationBroadcast,
+  // Email verification validations
+  validateAdminCreateAccount,
+  validateAccountActivation,
 };

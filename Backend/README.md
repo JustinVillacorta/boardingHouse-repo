@@ -21,6 +21,9 @@ This project follows **MVC + Clean Architecture** principles:
   - Password hashing with bcrypt
   - Account lockout after failed attempts
   - Rate limiting for security
+  - **Email verification with OTP** (NEW)
+  - **Admin-created tenant accounts** (NEW)
+  - **Account activation flow** (NEW)
 
 - **Tenant Management**
   - Complete tenant profile management
@@ -115,7 +118,24 @@ npm run dev
 npm start
 ```
 
-The server will start on `http://localhost:5000`
+The server will start on `http://localhost:8000`
+
+## 🔐 Admin-Created Tenant Accounts with OTP Activation (NEW)
+
+This system now supports a streamlined tenant onboarding process where admins can create complete tenant profiles and send OTP activation emails:
+
+### Flow Overview
+1. **Admin creates tenant profile** - Complete profile with all details (name, room, rent, etc.)
+2. **System generates OTP** - 6-digit verification code
+3. **Email sent to tenant** - Contains OTP and tenant details
+4. **Tenant activates account** - Uses OTP to set password and activate
+5. **Immediate login** - Tenant can login right after activation
+
+### Key Benefits
+- **Complete profile upfront** - No need for tenants to fill out forms
+- **Secure activation** - OTP-based verification
+- **Immediate access** - Tenants can login right after activation
+- **Admin control** - Full control over tenant data and room assignments
 
 ## 📚 API Endpoints
 
@@ -131,6 +151,9 @@ The server will start on `http://localhost:5000`
 - `PUT /api/auth/change-password` - Change password (authenticated)
 - `GET /api/auth/validate-token` - Validate JWT token (authenticated)
 - `GET /api/auth/users` - Get all users (admin only)
+- `POST /api/auth/create-account` - Admin creates user account (admin only)
+- `POST /api/auth/activate` - Activate account with OTP and set password
+- `POST /api/auth/resend-verification/:userId` - Resend verification email (admin only)
 
 ### Tenant Management Endpoints
 - `POST /api/tenants` - Create tenant profile

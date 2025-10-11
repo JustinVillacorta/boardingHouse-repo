@@ -39,6 +39,35 @@ class TenantController {
     }
   }
 
+  // Debug endpoint to test tenant creation
+  async debugCreateTenant(req, res) {
+    try {
+      const tenantData = req.body;
+      const requestingUser = req.user;
+      
+      console.log('=== DEBUG TENANT CREATION ===');
+      console.log('Request body:', JSON.stringify(tenantData, null, 2));
+      console.log('Requesting user:', JSON.stringify(requestingUser, null, 2));
+      console.log('tenantData.userId:', tenantData.userId);
+      console.log('typeof tenantData.userId:', typeof tenantData.userId);
+      console.log('tenantData.userId === undefined:', tenantData.userId === undefined);
+      console.log('tenantData.userId === null:', tenantData.userId === null);
+      console.log('!tenantData.userId:', !tenantData.userId);
+      console.log('================================');
+      
+      return sendSuccess(res, 'Debug info logged to console', {
+        tenantData,
+        requestingUser: {
+          id: requestingUser.id,
+          role: requestingUser.role
+        }
+      });
+    } catch (error) {
+      console.error('Debug error:', error);
+      return sendServerError(res, 'Debug failed');
+    }
+  }
+
   // POST /api/tenants - Create tenant profile
   async createTenant(req, res) {
     try {
@@ -57,10 +86,12 @@ class TenantController {
       // If tenant is creating their own profile, use their own userId
       let targetUserId = tenantData.userId;
       
-      if (!targetUserId || requestingUser.role === 'tenant') {
+      if (requestingUser.role === 'tenant') {
         targetUserId = requestingUser.id;
+      } else if (!targetUserId) {
+        // For admin/staff creating new tenant, don't pass userId
+        targetUserId = null;
       }
-
       const tenant = await tenantService.createTenant(tenantData, targetUserId);
 
       return sendCreated(res, 'Tenant profile created successfully', tenant);

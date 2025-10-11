@@ -32,6 +32,9 @@ router.get('/expiring-leases', requireAdminOrStaff, tenantController.getTenantsW
 // GET /api/tenants/by-status/:status - Get tenants by status (admin/staff only)
 router.get('/by-status/:status', requireAdminOrStaff, tenantController.getTenantsByStatus);
 
+// Debug route for tenant creation
+router.post('/debug', authenticate, tenantController.debugCreateTenant);
+
 // POST /api/tenants - Create tenant profile
 router.post('/', validateTenantCreate, tenantController.createTenant);
 
