@@ -88,20 +88,69 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({ isOpen, onClose, onUs
   const validateForm = (): string | null => {
     // Common validations
     if (!formData.username.trim()) return 'Username is required';
+    if (formData.username.length < 3 || formData.username.length > 30) {
+      return 'Username must be between 3 and 30 characters';
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(formData.username)) {
+      return 'Username can only contain letters, numbers, underscores, and hyphens';
+    }
+    
     if (!formData.email.trim()) return 'Email is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      return 'Please provide a valid email address';
+    }
+    
     if (!formData.password) return 'Password is required';
     if (formData.password.length < 6) return 'Password must be at least 6 characters';
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      return 'Password must contain at least one lowercase letter, one uppercase letter, and one number';
+    }
     if (formData.password !== formData.confirmPassword) return 'Passwords do not match';
 
     if (formData.role === 'tenant') {
       // Tenant-specific validations
       if (!formData.firstName.trim()) return 'First name is required';
+      if (formData.firstName.length > 50) return 'First name must be less than 50 characters';
+      if (!/^[a-zA-Z\s'-]+$/.test(formData.firstName)) {
+        return 'First name can only contain letters, spaces, hyphens, and apostrophes';
+      }
+      
       if (!formData.lastName.trim()) return 'Last name is required';
+      if (formData.lastName.length > 50) return 'Last name must be less than 50 characters';
+      if (!/^[a-zA-Z\s'-]+$/.test(formData.lastName)) {
+        return 'Last name can only contain letters, spaces, hyphens, and apostrophes';
+      }
+      
       if (!formData.phoneNumber.trim()) return 'Phone number is required';
+      if (!/^[\+]?[1-9][\d]{0,15}$/.test(formData.phoneNumber)) {
+        return 'Please provide a valid phone number';
+      }
+      
       if (!formData.dateOfBirth) return 'Date of birth is required';
+      const birthDate = new Date(formData.dateOfBirth);
+      const today = new Date();
+      if (birthDate >= today) {
+        return 'Date of birth must be in the past';
+      }
+      
+      if (!formData.idType) return 'ID type is required';
+      if (!['passport', 'drivers_license', 'national_id', 'other'].includes(formData.idType)) {
+        return 'ID type must be passport, drivers_license, national_id, or other';
+      }
+      
       if (!formData.idNumber.trim()) return 'ID number is required';
+      if (formData.idNumber.length > 50) return 'ID number must be less than 50 characters';
+      
       if (!formData.emergencyContactName.trim()) return 'Emergency contact name is required';
+      if (formData.emergencyContactName.length > 100) return 'Emergency contact name must be less than 100 characters';
+      
+      if (!formData.emergencyContactRelationship.trim()) return 'Emergency contact relationship is required';
+      if (formData.emergencyContactRelationship.length > 50) return 'Emergency contact relationship must be less than 50 characters';
+      
       if (!formData.emergencyContactPhone.trim()) return 'Emergency contact phone is required';
+      if (!/^[\+]?[1-9][\d]{0,15}$/.test(formData.emergencyContactPhone)) {
+        return 'Please provide a valid emergency contact phone number';
+      }
     }
 
     return null;

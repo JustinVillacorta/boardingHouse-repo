@@ -1,5 +1,6 @@
 const tenantRepository = require('../repositories/tenantRepository');
 const userRepository = require('../repositories/userRepository');
+const roomService = require('./roomService');
 const { generateAccessToken } = require('../utils/jwt');
 
 class TenantService {
@@ -19,14 +20,6 @@ class TenantService {
         throw new Error('User with this username already exists');
       }
 
-      // Check if room number is available (if provided)
-      if (roomNumber) {
-        const isRoomAvailable = await tenantRepository.isRoomNumberAvailable(roomNumber);
-        if (!isRoomAvailable) {
-          throw new Error('Room number is already occupied');
-        }
-      }
-
       // Create user account with tenant role
       const user = await userRepository.create({
         username,
@@ -35,7 +28,7 @@ class TenantService {
         role: 'tenant',
       });
 
-      // Create tenant profile
+      // Create tenant profile (without roomNumber initially)
       const tenant = await tenantRepository.create({
         userId: user._id,
         firstName,
@@ -45,12 +38,36 @@ class TenantService {
         idType,
         idNumber,
         emergencyContact,
-        roomNumber,
+        roomNumber: null, // Will be set after room assignment
         leaseStartDate,
         leaseEndDate,
         monthlyRent,
         securityDeposit,
       });
+
+      // If room number is provided, assign tenant to room
+      if (roomNumber) {
+        try {
+          // Find the room by room number
+          const room = await roomService.getRoomByRoomNumber(roomNumber);
+          if (!room) {
+            throw new Error('Room not found');
+          }
+
+          // Check if room is available for assignment
+          if (!room.isAvailable) {
+            throw new Error('Room is not available for assignment');
+          }
+
+          // Assign tenant to room using the room service
+          await roomService.assignTenantToRoom(room.id, tenant._id, monthlyRent);
+        } catch (error) {
+          // If room assignment fails, clean up the created tenant and user
+          await tenantRepository.delete(tenant._id);
+          await userRepository.delete(user._id);
+          throw error;
+        }
+      }
 
       // Generate token
       const token = generateAccessToken(user);
@@ -98,19 +115,35 @@ class TenantService {
         throw new Error('Tenant profile already exists for this user');
       }
 
-      // Check if room number is available (if provided)
-      if (tenantData.roomNumber) {
-        const isRoomAvailable = await tenantRepository.isRoomNumberAvailable(tenantData.roomNumber);
-        if (!isRoomAvailable) {
-          throw new Error('Room number is already occupied');
-        }
-      }
-
-      // Create tenant profile
+      // Create tenant profile (without roomNumber initially)
       const tenant = await tenantRepository.create({
         ...tenantData,
         userId: targetUserId,
+        roomNumber: null, // Will be set after room assignment
       });
+
+      // If room number is provided, assign tenant to room
+      if (tenantData.roomNumber) {
+        try {
+          // Find the room by room number
+          const room = await roomService.getRoomByRoomNumber(tenantData.roomNumber);
+          if (!room) {
+            throw new Error('Room not found');
+          }
+
+          // Check if room is available for assignment
+          if (!room.isAvailable) {
+            throw new Error('Room is not available for assignment');
+          }
+
+          // Assign tenant to room using the room service
+          await roomService.assignTenantToRoom(room.id, tenant._id, tenantData.monthlyRent);
+        } catch (error) {
+          // If room assignment fails, clean up the created tenant
+          await tenantRepository.delete(tenant._id);
+          throw error;
+        }
+      }
 
       return this.formatTenantResponse(tenant);
     } catch (error) {

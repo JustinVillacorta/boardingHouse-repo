@@ -178,10 +178,10 @@ roomSchema.pre('save', function(next) {
     this.occupancy.max = this.capacity;
   }
   
-  // Auto-update status based on occupancy
-  if (this.occupancy.current >= this.occupancy.max && this.status === 'available') {
+  // Auto-update status based on occupancy and tenant assignment
+  if (this.occupancy.current >= this.occupancy.max && this.currentTenant && this.status === 'available') {
     this.status = 'occupied';
-  } else if (this.occupancy.current === 0 && this.status === 'occupied') {
+  } else if (this.occupancy.current === 0 && !this.currentTenant && this.status === 'occupied') {
     this.status = 'available';
   }
   

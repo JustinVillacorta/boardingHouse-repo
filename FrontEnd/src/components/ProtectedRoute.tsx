@@ -13,8 +13,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles = ['admin', 'staff', 'tenant'],
   requiredRole 
 }) => {
-  const { isAuthenticated, user, isLoading } = useAuth();
   const location = useLocation();
+  const { isAuthenticated, user, isLoading } = useAuth();
 
   // Show loading spinner while checking authentication
   if (isLoading) {

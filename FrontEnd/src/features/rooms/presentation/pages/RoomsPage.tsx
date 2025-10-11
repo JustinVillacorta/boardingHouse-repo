@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Search, 
@@ -11,21 +11,13 @@ import {
   Wrench,
   BellDot,
   LogOut,
-  SquarePen
+  SquarePen,
+  Trash2
 } from 'lucide-react';
-import { useAuth } from "../../contexts/AuthContext";
-import CreateUserModal from "../../components/CreateUserModal";
-import apiService from "../../services/apiService";
-
-interface User {
-  _id: string;
-  username: string;
-  email: string;
-  role: 'admin' | 'staff' | 'tenant';
-  isActive: boolean;
-  createdAt: string;
-  lastLogin?: string;
-}
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useRooms } from '../hooks/useRooms';
+import CreateRoomModal from '../components/CreateRoomModal';
+import type { CreateRoomRequest, RoomFilters } from '../../domain/entities/Room';
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -33,9 +25,9 @@ const TopNavbar: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const notifications = [
-    { id: 1, text: "Need Better Notifications Design" },
-    { id: 2, text: "Make the Website Responsive" },
-    { id: 3, text: "Fix Bug of Able to go Back to a Page" },
+    { id: 1, text: "Room 101 needs maintenance" },
+    { id: 2, text: "New tenant assigned to Room 205" },
+    { id: 3, text: "Monthly rent collection due" },
   ];
 
   return (
@@ -46,13 +38,12 @@ const TopNavbar: React.FC = () => {
           onClick={() => navigate("/main")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
-            Users
+            Rooms
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            Manage system users and permissions
+            Manage room inventory and occupancy
           </p>
         </div>
-
 
         {/* Right */}
         <div className="flex items-center space-x-4">
@@ -61,7 +52,7 @@ const TopNavbar: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search for anything..."
+              placeholder="Search rooms..."
               className="pl-10 pr-4 py-2 w-[500px] border border-gray-300 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -103,7 +94,6 @@ const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>
@@ -248,64 +238,95 @@ const Sidebar: React.FC = () => {
   );
 };
 
-// Project Performance Component
-const UserMain: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Main Rooms Page Component
+const RoomsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filters, setFilters] = useState<RoomFilters>({});
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
+  
+  const { 
+    rooms, 
+    isLoading, 
+    error, 
+    fetchRooms, 
+    createRoom, 
+    deleteRoom
+  } = useRooms();
 
-  // Fetch users on component mount
+  // Fetch rooms on component mount only
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (!hasFetchedRef.current) {
+      fetchRooms(filters);
+      hasFetchedRef.current = true;
+    }
+  }, []); // Empty dependency array - only run on mount
 
-  const fetchUsers = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await apiService.getUsers();
-      
-      if (response.success && response.data) {
-        // Filter out admin users and only show staff and tenant users
-        const filteredUsers = response.data.filter((user: User) => 
-          user.role === 'staff' || user.role === 'tenant'
-        );
-        setUsers(filteredUsers);
-      } else {
-        setError('Failed to fetch users');
+  // Debounced fetch for filter changes
+  const debouncedFetchRooms = useCallback(() => {
+    const timeoutId = setTimeout(() => {
+      if (hasFetchedRef.current) {
+        fetchRooms(filters);
       }
-    } catch (error: any) {
-      setError(error.message || 'Failed to fetch users');
-    } finally {
-      setIsLoading(false);
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [filters, fetchRooms]);
+
+  // Fetch rooms when filters change (but not on initial mount)
+  useEffect(() => {
+    const cleanup = debouncedFetchRooms();
+    return cleanup;
+  }, [debouncedFetchRooms]);
+
+  const handleRoomCreated = async (roomData: CreateRoomRequest) => {
+    try {
+      await createRoom(roomData);
+    } catch (error) {
+      // Error is already handled in the hook
+      throw error;
     }
   };
 
-  const handleUserCreated = () => {
-    // Refresh the users list after a new user is created
-    fetchUsers();
+  const handleDeleteRoom = async (roomId: string) => {
+    try {
+      await deleteRoom(roomId);
+      setShowDeleteConfirm(null);
+    } catch (error) {
+      // Error is already handled in the hook
+    }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+  const handleFilterChange = (newFilters: Partial<RoomFilters>) => {
+    const updatedFilters = { ...filters, ...newFilters };
+    setFilters(updatedFilters);
+    // Don't call fetchRooms here - let the useEffect handle it
   };
 
-  const getStatusBadgeColor = (isActive: boolean) => {
-    return isActive 
-      ? "bg-green-100 text-green-800 border-green-200" 
-      : "bg-gray-100 text-gray-800 border-gray-200";
-  };
-
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
-      case 'staff':
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'available':
+        return "bg-green-100 text-green-800 border-green-200";
+      case 'occupied':
         return "bg-blue-100 text-blue-800 border-blue-200";
-      case 'tenant':
+      case 'maintenance':
+        return "bg-orange-100 text-orange-800 border-orange-200";
+      case 'reserved':
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const getRoomTypeBadgeColor = (roomType: string) => {
+    switch (roomType) {
+      case 'single':
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case 'double':
+        return "bg-green-100 text-green-800 border-green-200";
+      case 'shared':
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case 'suite':
         return "bg-purple-100 text-purple-800 border-purple-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
@@ -318,32 +339,77 @@ const UserMain: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 pl-64">
         <TopNavbar />
         
-        {/* ✅ Full width wrapper instead of max-w-7xl */}
         <div className="w-full p-6"> 
+          {/* Header with Statistics */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-800">User Management</h2>
+              <h2 className="text-2xl font-semibold text-gray-800">Room Management</h2>
               <p className="text-sm text-gray-600">
-                {users.length} {users.length === 1 ? 'user' : 'users'} found
+                {rooms.length} {rooms.length === 1 ? 'room' : 'rooms'} found
               </p>
             </div>
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4"/>
-              Create User
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => fetchRooms(filters)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <Search className="w-4 h-4" />
+                Refresh
+              </button>
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4"/>
+                Create Room
+              </button>
+            </div>
           </div>
 
-          {/* Users Content */}
+
+          {/* Filters */}
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+            <div className="flex items-center gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={filters.status || ''}
+                  onChange={(e) => handleFilterChange({ status: e.target.value as any || undefined })}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Status</option>
+                  <option value="available">Available</option>
+                  <option value="occupied">Occupied</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="reserved">Reserved</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+                <select
+                  value={filters.roomType || ''}
+                  onChange={(e) => handleFilterChange({ roomType: e.target.value as any || undefined })}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Types</option>
+                  <option value="single">Single</option>
+                  <option value="double">Double</option>
+                  <option value="shared">Shared</option>
+                  <option value="suite">Suite</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Rooms Content */}
           <main className="flex-1 overflow-auto">
             <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm">
               {/* Loading State */}
               {isLoading && (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-2 text-gray-600">Loading users...</span>
+                  <span className="ml-2 text-gray-600">Loading rooms...</span>
                 </div>
               )}
 
@@ -353,7 +419,7 @@ const UserMain: React.FC = () => {
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                     <p className="text-red-700">{error}</p>
                     <button 
-                      onClick={fetchUsers}
+                      onClick={() => fetchRooms(filters)}
                       className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                     >
                       Try Again
@@ -362,61 +428,74 @@ const UserMain: React.FC = () => {
                 </div>
               )}
 
-              {/* Users Table */}
+              {/* Rooms Table */}
               {!isLoading && !error && (
                 <>
                   {/* Header Row */}
-                  <div className="grid grid-cols-6 font-semibold text-gray-700 border-b pb-2 mb-4 p-6 text-center">
-                    <span>Name</span>
-                    <span>Email</span>
-                    <span>Role</span>
+                  <div className="grid grid-cols-7 font-semibold text-gray-700 border-b pb-2 mb-4 p-6 text-center">
+                    <span>Room Number</span>
+                    <span>Type</span>
+                    <span>Capacity</span>
+                    <span>Monthly Rent</span>
                     <span>Status</span>
-                    <span>Date Started</span>
+                    <span>Occupancy</span>
                     <span>Actions</span>
                   </div>
 
-                  {/* User Rows */}
+                  {/* Room Rows */}
                   <div className="px-6 pb-6">
-                    {users.length === 0 ? (
+                    {rooms.length === 0 ? (
                       <div className="text-center py-12">
-                        <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">No users found</p>
-                        <p className="text-sm text-gray-500">Create your first user to get started</p>
+                        <DoorOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-600">No rooms found</p>
+                        <p className="text-sm text-gray-500">Create your first room to get started</p>
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {users.map((user, index) => (
+                        {rooms.map((room, index) => (
                           <div
-                            key={user._id || `user-${index}`}
-                            className="grid grid-cols-6 items-center py-3 border-b last:border-b-0 text-gray-800"
+                            key={room._id || `room-${index}`}
+                            className="grid grid-cols-7 items-center py-3 border-b last:border-b-0 text-gray-800"
                           >
-                            {/* Name */}
-                            <span className="text-center font-medium">{user.username}</span>
+                            {/* Room Number */}
+                            <span className="text-center font-medium">{room.roomNumber || 'N/A'}</span>
 
-                            {/* Email */}
-                            <span className="text-center text-sm">{user.email}</span>
-
-                            {/* Role */}
+                            {/* Type */}
                             <span className="text-center">
-                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${getRoleBadgeColor(user.role)}`}>
-                                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${getRoomTypeBadgeColor(room.roomType || 'single')}`}>
+                                {room.roomType ? room.roomType.charAt(0).toUpperCase() + room.roomType.slice(1) : 'Single'}
                               </span>
                             </span>
+
+                            {/* Capacity */}
+                            <span className="text-center">{room.capacity || 0}</span>
+
+                            {/* Monthly Rent */}
+                            <span className="text-center">₱{(room.monthlyRent || 0).toLocaleString()}</span>
 
                             {/* Status */}
                             <span className="text-center">
-                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColor(user.isActive)}`}>
-                                {user.isActive ? 'Active' : 'Inactive'}
+                              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColor(room.status || 'available')}`}>
+                                {room.status ? room.status.charAt(0).toUpperCase() + room.status.slice(1) : 'Available'}
                               </span>
                             </span>
 
-                            {/* Date Started */}
-                            <span className="text-center text-sm">{formatDate(user.createdAt)}</span>
+                            {/* Occupancy */}
+                            <span className="text-center">
+                              {room.occupancy?.current || 0}/{room.occupancy?.max || 0}
+                            </span>
 
                             {/* Actions */}
-                            <span className="flex justify-center">
+                            <span className="flex justify-center gap-2">
                               <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                                 <SquarePen className="w-4 h-4 text-gray-600 hover:text-gray-800" />
+                              </button>
+                              <button 
+                                onClick={() => room._id && setShowDeleteConfirm(room._id)}
+                                className="p-1 hover:bg-red-100 rounded transition-colors"
+                                disabled={!room._id}
+                              >
+                                <Trash2 className="w-4 h-4 text-gray-600 hover:text-red-600" />
                               </button>
                             </span>
                           </div>
@@ -431,14 +510,40 @@ const UserMain: React.FC = () => {
         </div>
       </div>
 
-      {/* Create User Modal */}
-      <CreateUserModal
+      {/* Create Room Modal */}
+      <CreateRoomModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onUserCreated={handleUserCreated}
+        onRoomCreated={handleRoomCreated}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-80">
+            <h2 className="text-lg font-semibold mb-4">Confirm Delete</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this room? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+                onClick={() => setShowDeleteConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600"
+                onClick={() => handleDeleteRoom(showDeleteConfirm)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default UserMain;
+export default RoomsPage;

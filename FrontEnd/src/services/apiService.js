@@ -1,5 +1,5 @@
 // API Service for frontend communication
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:9000/api';
 
 class ApiService {
   constructor() {
@@ -15,6 +15,16 @@ class ApiService {
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const token = this.getAuthToken();
+
+    // Debug: Log authentication info for rooms endpoint
+    if (endpoint.includes('/rooms')) {
+      console.log('=== API Request Debug (Rooms) ===');
+      console.log('Endpoint:', endpoint);
+      console.log('Full URL:', url);
+      console.log('Token exists:', !!token);
+      console.log('Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
+      console.log('===============================');
+    }
 
     const config = {
       headers: {
@@ -45,7 +55,19 @@ class ApiService {
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      const responseData = await response.json();
+      
+      // Debug: Log response for rooms endpoint
+      if (endpoint.includes('/rooms')) {
+        console.log('=== API Response Debug (Rooms) ===');
+        console.log('Response status:', response.status);
+        console.log('Response data:', responseData);
+        console.log('Response data type:', typeof responseData);
+        console.log('Response data keys:', responseData ? Object.keys(responseData) : 'No data');
+        console.log('================================');
+      }
+      
+      return responseData;
     } catch (error) {
       console.error('API request failed:', error);
       throw error;

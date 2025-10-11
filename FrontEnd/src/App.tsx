@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import SignIn from "./view_pages/manager/signIn";
 
 {/*Admin Path*/}
@@ -23,9 +24,10 @@ import StaffFrame from './view_pages/staff/staffFrame';
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <Routes>
           {/* Public routes */}
           <Route path="/" element={<SignIn />} />
           <Route path="/signin" element={<SignIn />} />
@@ -89,9 +91,10 @@ const App: React.FC = () => {
           
           {/* Fallback: redirect unknown paths to sign-in */}
           <Route path="*" element={<Navigate to="/sign-in" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 };
 

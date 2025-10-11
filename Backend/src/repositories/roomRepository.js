@@ -147,6 +147,7 @@ class RoomRepository {
       minRent,
       maxRent,
       isAvailable,
+      currentTenant,
     } = options;
 
     // Build query
@@ -159,6 +160,7 @@ class RoomRepository {
     if (maxCapacity) query.capacity = { ...query.capacity, $lte: maxCapacity };
     if (minRent) query.monthlyRent = { ...query.monthlyRent, $gte: minRent };
     if (maxRent) query.monthlyRent = { ...query.monthlyRent, $lte: maxRent };
+    if (currentTenant) query.currentTenant = currentTenant;
 
     // Filter for available rooms
     if (isAvailable === true) {

@@ -68,6 +68,19 @@ class RoomService {
     }
   }
 
+  // Get room by room number
+  async getRoomByRoomNumber(roomNumber) {
+    try {
+      const room = await roomRepository.findByRoomNumber(roomNumber);
+      if (!room) {
+        throw new Error('Room not found');
+      }
+      return this.formatRoomResponse(room);
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Update room
   async updateRoom(roomId, updateData) {
     try {
@@ -166,7 +179,7 @@ class RoomService {
       await roomRepository.assignTenant(roomId, tenantId, rentAmount);
 
       // Update tenant's room information
-      await tenantRepository.updateById(tenantId, { 
+      await tenantRepository.update(tenantId, { 
         roomNumber: room.roomNumber,
         monthlyRent: rentAmount || room.monthlyRent,
         tenantStatus: 'active'
@@ -207,7 +220,7 @@ class RoomService {
       await roomRepository.unassignTenant(roomId, tenantId);
 
       // Update tenant's room information
-      await tenantRepository.updateById(tenantId, { 
+      await tenantRepository.update(tenantId, { 
         roomNumber: null,
         tenantStatus: 'inactive'
       });
