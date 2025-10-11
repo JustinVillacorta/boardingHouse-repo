@@ -11,10 +11,13 @@ import {
   Wrench,
   BellDot,
   LogOut,
-  SquarePen
+  SquarePen,
+  Archive
 } from 'lucide-react';
 import { useAuth } from "../../contexts/AuthContext";
 import CreateUserModal from "../../components/CreateUserModal";
+import EditUserModal from "../../components/EditUserModal";
+import ArchiveUserDialog from "../../components/ArchiveUserDialog";
 import apiService from "../../services/apiService";
 
 interface User {
@@ -254,6 +257,9 @@ const UserMain: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Fetch users on component mount
   useEffect(() => {
@@ -285,6 +291,30 @@ const UserMain: React.FC = () => {
   const handleUserCreated = () => {
     // Refresh the users list after a new user is created
     fetchUsers();
+  };
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setIsEditModalOpen(true);
+  };
+
+  const handleArchiveUser = (user: User) => {
+    setSelectedUser(user);
+    setIsArchiveDialogOpen(true);
+  };
+
+  const handleUserUpdated = () => {
+    // Refresh the users list after a user is updated
+    fetchUsers();
+    setIsEditModalOpen(false);
+    setSelectedUser(null);
+  };
+
+  const handleUserArchived = () => {
+    // Refresh the users list after a user is archived
+    fetchUsers();
+    setIsArchiveDialogOpen(false);
+    setSelectedUser(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -414,9 +444,20 @@ const UserMain: React.FC = () => {
                             <span className="text-center text-sm">{formatDate(user.createdAt)}</span>
 
                             {/* Actions */}
-                            <span className="flex justify-center">
-                              <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                            <span className="flex justify-center gap-2">
+                              <button 
+                                onClick={() => handleEditUser(user)}
+                                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                title="Edit User"
+                              >
                                 <SquarePen className="w-4 h-4 text-gray-600 hover:text-gray-800" />
+                              </button>
+                              <button 
+                                onClick={() => handleArchiveUser(user)}
+                                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                title="Archive User"
+                              >
+                                <Archive className="w-4 h-4 text-red-600 hover:text-red-800" />
                               </button>
                             </span>
                           </div>
@@ -436,6 +477,22 @@ const UserMain: React.FC = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onUserCreated={handleUserCreated}
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onUserUpdated={handleUserUpdated}
+        user={selectedUser}
+      />
+
+      {/* Archive User Dialog */}
+      <ArchiveUserDialog
+        isOpen={isArchiveDialogOpen}
+        onClose={() => setIsArchiveDialogOpen(false)}
+        onUserArchived={handleUserArchived}
+        user={selectedUser}
       />
     </div>
   );

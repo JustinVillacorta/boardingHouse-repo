@@ -12,11 +12,12 @@ import {
   BellDot,
   LogOut,
   SquarePen,
-  Trash2
+  RotateCcw
 } from 'lucide-react';
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useRooms } from '../hooks/useRooms';
 import CreateRoomModal from '../components/CreateRoomModal';
+import EditRoomModal from '../components/EditRoomModal';
 import type { CreateRoomRequest, RoomFilters } from '../../domain/entities/Room';
 
 /* -------------------- TOP NAVBAR -------------------- */
@@ -241,8 +242,9 @@ const Sidebar: React.FC = () => {
 // Main Rooms Page Component
 const RoomsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [filters, setFilters] = useState<RoomFilters>({});
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const hasFetchedRef = useRef(false);
   
   const { 
@@ -251,7 +253,7 @@ const RoomsPage: React.FC = () => {
     error, 
     fetchRooms, 
     createRoom, 
-    deleteRoom
+    
   } = useRooms();
 
   // Fetch rooms on component mount only
@@ -288,13 +290,16 @@ const RoomsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteRoom = async (roomId: string) => {
-    try {
-      await deleteRoom(roomId);
-      setShowDeleteConfirm(null);
-    } catch (error) {
-      // Error is already handled in the hook
-    }
+  const handleEditRoom = (room: any) => {
+    setSelectedRoom(room);
+    setIsEditModalOpen(true);
+  };
+
+  const handleRoomUpdated = () => {
+    // Refresh the rooms list after a room is updated
+    fetchRooms(filters);
+    setIsEditModalOpen(false);
+    setSelectedRoom(null);
   };
 
   const handleFilterChange = (newFilters: Partial<RoomFilters>) => {
@@ -313,6 +318,8 @@ const RoomsPage: React.FC = () => {
         return "bg-orange-100 text-orange-800 border-orange-200";
       case 'reserved':
         return "bg-purple-100 text-purple-800 border-purple-200";
+      case 'unavailable':
+        return "bg-red-100 text-red-800 border-red-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
@@ -353,7 +360,7 @@ const RoomsPage: React.FC = () => {
                 onClick={() => fetchRooms(filters)}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
-                <Search className="w-4 h-4" />
+                <RotateCcw className="w-4 h-4" />
                 Refresh
               </button>
               <button 
@@ -382,6 +389,7 @@ const RoomsPage: React.FC = () => {
                   <option value="occupied">Occupied</option>
                   <option value="maintenance">Maintenance</option>
                   <option value="reserved">Reserved</option>
+                  <option value="unavailable">Not Available for Leasing</option>
                 </select>
               </div>
               
@@ -487,15 +495,12 @@ const RoomsPage: React.FC = () => {
 
                             {/* Actions */}
                             <span className="flex justify-center gap-2">
-                              <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                                <SquarePen className="w-4 h-4 text-gray-600 hover:text-gray-800" />
-                              </button>
                               <button 
-                                onClick={() => room._id && setShowDeleteConfirm(room._id)}
-                                className="p-1 hover:bg-red-100 rounded transition-colors"
-                                disabled={!room._id}
+                                onClick={() => handleEditRoom(room)}
+                                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                title="Edit Room"
                               >
-                                <Trash2 className="w-4 h-4 text-gray-600 hover:text-red-600" />
+                                <SquarePen className="w-4 h-4 text-gray-600 hover:text-gray-800" />
                               </button>
                             </span>
                           </div>
@@ -517,31 +522,15 @@ const RoomsPage: React.FC = () => {
         onRoomCreated={handleRoomCreated}
       />
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-80">
-            <h2 className="text-lg font-semibold mb-4">Confirm Delete</h2>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this room? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-                onClick={() => setShowDeleteConfirm(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600"
-                onClick={() => handleDeleteRoom(showDeleteConfirm)}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Edit Room Modal */}
+      <EditRoomModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onRoomUpdated={handleRoomUpdated}
+        room={selectedRoom}
+      />
+
+
     </div>
   );
 };

@@ -1,14 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Wifi, Tv, BookOpen, Bath, Wind, Eye, Refrigerator, Shirt, Bed, ChefHat, ShirtIcon } from 'lucide-react';
-import type { CreateRoomRequest } from '../../domain/entities/Room';
 
-interface CreateRoomModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onRoomCreated: (roomData: CreateRoomRequest) => Promise<void>;
+interface Room {
+  _id: string;
+  roomNumber: string;
+  roomType: 'single' | 'double' | 'shared' | 'suite';
+  capacity: number;
+  status: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
+  monthlyRent: number;
+  securityDeposit?: number;
+  amenities?: string[];
+  description?: string;
+  floor?: number;
+  area?: number;
 }
 
-interface FormData {
+interface EditRoomModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onRoomUpdated: () => void;
+  room: Room | null;
+}
+
+interface EditFormData {
   // Basic Information
   roomNumber: string;
   roomType: 'single' | 'double' | 'shared' | 'suite';
@@ -30,8 +44,13 @@ interface FormData {
   area: number;
 }
 
-const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRoomCreated }) => {
-  const [formData, setFormData] = useState<FormData>({
+const EditRoomModal: React.FC<EditRoomModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onRoomUpdated, 
+  room 
+}) => {
+  const [formData, setFormData] = useState<EditFormData>({
     roomNumber: '',
     roomType: 'single',
     capacity: 1,
@@ -62,6 +81,26 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
     { name: 'Laundry Access', icon: ShirtIcon },
   ];
 
+  // Update form data when room prop changes
+  useEffect(() => {
+    if (room) {
+      setFormData({
+        roomNumber: room.roomNumber || '',
+        roomType: room.roomType || 'single',
+        capacity: room.capacity || 1,
+        status: room.status || 'available',
+        monthlyRent: room.monthlyRent || 0,
+        securityDeposit: room.securityDeposit || 0,
+        amenities: room.amenities || [],
+        description: room.description || '',
+        floor: room.floor || 1,
+        area: room.area || 0,
+      });
+    }
+    setError(null);
+    setSuccess(null);
+  }, [room]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -91,11 +130,11 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Prevent double submission
-    if (isLoading) {
+    if (!room) {
+      setError('No room selected for editing');
       return;
     }
-    
+
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -107,54 +146,64 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
     setSuccess(null);
 
     try {
-      const roomData: CreateRoomRequest = {
+      // Import apiService dynamically to avoid circular dependencies
+      const { default: apiService } = await import('../../../../services/apiService');
+      
+      const updateData = {
         roomNumber: formData.roomNumber,
         roomType: formData.roomType,
         capacity: formData.capacity,
+        status: formData.status,
         monthlyRent: formData.monthlyRent,
-        description: formData.description || undefined,
+        securityDeposit: formData.securityDeposit,
         amenities: formData.amenities,
+        description: formData.description || undefined,
         floor: formData.floor || undefined,
         area: formData.area || undefined,
-        status: formData.status,
       };
 
-      await onRoomCreated(roomData);
-      setSuccess('Room created successfully!');
-      
-      // Reset form immediately after successful creation
-      handleClear();
-      
-      // Close modal after a short delay to show success message
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      const response = await apiService.updateRoom(room._id, updateData);
+
+      if (response.success) {
+        setSuccess('Room updated successfully!');
+        onRoomUpdated();
+        
+        // Close modal after successful update
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      } else {
+        setError(response.message || 'Failed to update room');
+      }
 
     } catch (error: any) {
-      setError(error.message || 'Failed to create room');
+      setError(error.message || 'Failed to update room');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleClear = () => {
-    setFormData({
-      roomNumber: '',
-      roomType: 'single',
-      capacity: 1,
-      status: 'available',
-      monthlyRent: 0,
-      securityDeposit: 0,
-      amenities: [],
-      description: '',
-      floor: 1,
-      area: 0,
-    });
+  const handleCancel = () => {
+    if (room) {
+      setFormData({
+        roomNumber: room.roomNumber || '',
+        roomType: room.roomType || 'single',
+        capacity: room.capacity || 1,
+        status: room.status || 'available',
+        monthlyRent: room.monthlyRent || 0,
+        securityDeposit: room.securityDeposit || 0,
+        amenities: room.amenities || [],
+        description: room.description || '',
+        floor: room.floor || 1,
+        area: room.area || 0,
+      });
+    }
     setError(null);
     setSuccess(null);
+    onClose();
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !room) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -162,9 +211,9 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Create New Room</h2>
+            <h2 className="text-2xl font-bold text-gray-800">Edit Room</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Add a new room to the boarding house. Complete all required information below.
+              Update room information for {room.roomNumber}
             </p>
           </div>
           <button
@@ -402,17 +451,17 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
           <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
             <button
               type="button"
-              onClick={handleClear}
-              className="px-6 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+              onClick={handleCancel}
+              className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
             >
-              Clear
+              Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isLoading ? 'Creating...' : 'Save'}
+              {isLoading ? 'Updating...' : 'Update Room'}
             </button>
           </div>
         </form>
@@ -421,4 +470,4 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
   );
 };
 
-export default CreateRoomModal;
+export default EditRoomModal;
