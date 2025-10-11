@@ -40,7 +40,7 @@ src/features/dashboard/
 - **Repository Interfaces**: Clean contracts for data access
 
 #### Infrastructure Layer
-- **API Repository**: Implementation using existing `apiService.js`
+- **API Repository**: Implementation using existing `apiService.ts`
 - **Type-safe Integration**: TypeScript interfaces for JavaScript modules
 
 #### Application Layer

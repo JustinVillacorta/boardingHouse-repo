@@ -8,8 +8,7 @@ import { DashboardService } from '../../application/services/DashboardService';
 import { createDashboardRepository } from '../../infrastructure/repositories/DashboardRepositoryImpl';
 
 // Import the existing API service
-// @ts-ignore - Using JS module in TS
-import ApiService from '../../../../services/apiService.js';
+import ApiService from '../../../../services/apiService';
 
 interface DashboardData {
   stats: DashboardStats | null;

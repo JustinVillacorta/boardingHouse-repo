@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ReportsService } from '../../application';
 import { ReportsRepositoryImpl } from '../../infrastructure/repositories/ReportsRepositoryImpl';
-// @ts-ignore - Using JS apiService with TypeScript
 import apiService from '../../../../services/apiService';
 import type { 
   Report, 
