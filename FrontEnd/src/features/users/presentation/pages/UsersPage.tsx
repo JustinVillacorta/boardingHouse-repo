@@ -13,19 +13,10 @@ import {
   LogOut,
   SquarePen
 } from 'lucide-react';
-import { useAuth } from "../../contexts/AuthContext";
-import CreateUserModal from "../../components/CreateUserModal";
-import apiService from "../../services/apiService";
-
-interface User {
-  _id: string;
-  username: string;
-  email: string;
-  role: 'admin' | 'staff' | 'tenant';
-  isActive: boolean;
-  createdAt: string;
-  lastLogin?: string;
-}
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useUsers } from '../hooks/useUsers';
+import CreateUserModal from '../components/CreateUserModal';
+import { CreateUserRequest, CreateTenantRequest } from '../../domain/entities/User';
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -52,7 +43,6 @@ const TopNavbar: React.FC = () => {
             Manage system users and permissions
           </p>
         </div>
-
 
         {/* Right */}
         <div className="flex items-center space-x-4">
@@ -103,7 +93,6 @@ const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>
@@ -195,7 +184,6 @@ const Sidebar: React.FC = () => {
               </div>
             </div>
           </div>
-
         </div>
         
         <nav className="mt-6">
@@ -248,43 +236,23 @@ const Sidebar: React.FC = () => {
   );
 };
 
-// Project Performance Component
-const UserMain: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Main Users Page Component
+const UsersPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { users, isLoading, error, fetchUsers, createUser, setError } = useUsers();
 
   // Fetch users on component mount
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
-  const fetchUsers = async () => {
+  const handleUserCreated = async (userData: CreateUserRequest | CreateTenantRequest) => {
     try {
-      setIsLoading(true);
-      setError(null);
-      const response = await apiService.getUsers();
-      
-      if (response.success && response.data) {
-        // Filter out admin users and only show staff and tenant users
-        const filteredUsers = response.data.filter((user: User) => 
-          user.role === 'staff' || user.role === 'tenant'
-        );
-        setUsers(filteredUsers);
-      } else {
-        setError('Failed to fetch users');
-      }
-    } catch (error: any) {
-      setError(error.message || 'Failed to fetch users');
-    } finally {
-      setIsLoading(false);
+      await createUser(userData);
+    } catch (error) {
+      // Error is already handled in the hook
+      throw error;
     }
-  };
-
-  const handleUserCreated = () => {
-    // Refresh the users list after a new user is created
-    fetchUsers();
   };
 
   const formatDate = (dateString: string) => {
@@ -318,7 +286,6 @@ const UserMain: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 pl-64">
         <TopNavbar />
         
-        {/* ✅ Full width wrapper instead of max-w-7xl */}
         <div className="w-full p-6"> 
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -353,7 +320,7 @@ const UserMain: React.FC = () => {
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                     <p className="text-red-700">{error}</p>
                     <button 
-                      onClick={fetchUsers}
+                      onClick={() => fetchUsers()}
                       className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                     >
                       Try Again
@@ -441,4 +408,4 @@ const UserMain: React.FC = () => {
   );
 };
 
-export default UserMain;
+export default UsersPage;
