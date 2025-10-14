@@ -166,9 +166,12 @@ export const useReports = () => {
     }
   }, []);
 
-  // Load initial data
+  // Load initial data - sorted by latest first
   useEffect(() => {
-    getAllReports();
+    getAllReports({ 
+      sortBy: 'submittedAt',
+      sortOrder: 'desc'
+    });
     getReportStatistics();
   }, [getAllReports, getReportStatistics]);
 
@@ -191,7 +194,10 @@ export const useReports = () => {
     // Utilities
     clearError: () => setError(null),
     refresh: () => {
-      getAllReports();
+      getAllReports({ 
+        sortBy: 'submittedAt',
+        sortOrder: 'desc'
+      });
       getReportStatistics();
     },
   };

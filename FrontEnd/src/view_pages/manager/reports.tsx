@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation  } from 'react-router-dom';
 import { 
   Search, 
@@ -426,8 +426,18 @@ const Report: React.FC = () => {
     loading, 
     error, 
     clearError,
-    updateReportStatus 
+    updateReportStatus,
+    getAllReports
   } = useReports();
+
+  // Load all reports with higher limit for admin, sorted by latest first
+  useEffect(() => {
+    getAllReports({ 
+      limit: 100,
+      sortBy: 'submittedAt',
+      sortOrder: 'desc'
+    });
+  }, [getAllReports]);
 
   // ✅ Status update handler
   const handleStatusUpdate = async (reportId: string, newStatus: ReportStatus) => {

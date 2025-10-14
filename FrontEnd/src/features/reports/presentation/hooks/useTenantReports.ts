@@ -76,9 +76,12 @@ export const useTenantReports = () => {
     }
   }, []);
 
-  // Load initial data - only get my reports, not all reports
+  // Load initial data - only get my reports, not all reports, sorted by latest first
   useEffect(() => {
-    getMyReports();
+    getMyReports({ 
+      sortBy: 'submittedAt',
+      sortOrder: 'desc'
+    });
   }, [getMyReports]);
 
   return {
@@ -90,7 +93,10 @@ export const useTenantReports = () => {
     // Actions
     getMyReports,
     createReport,
-    refresh: getMyReports,
+    refresh: () => getMyReports({ 
+      sortBy: 'submittedAt',
+      sortOrder: 'desc'
+    }),
     clearError: () => setError(null),
   };
 };
