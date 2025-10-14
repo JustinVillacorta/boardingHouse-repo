@@ -311,6 +311,11 @@ class ApiService {
     });
   }
 
+  // Tenant dashboard methods
+  async getTenantDashboard(): Promise<ApiResponse> {
+    return this.request('/tenants/dashboard');
+  }
+
   // Reports methods
   async getReports(params: PaginationParams = {}): Promise<ApiResponse> {
     const queryString = new URLSearchParams(params).toString();

@@ -137,6 +137,21 @@ class PaymentRecordRepository {
   }
 
   /**
+   * Get next due payment for a tenant (pending or overdue)
+   */
+  async findNextDuePaymentByTenant(tenantId) {
+    const payment = await Payment.findOne({
+      tenant: tenantId,
+      status: { $in: ['pending', 'overdue'] }
+    })
+    .sort({ dueDate: 1 })
+    .populate('room', 'roomNumber roomType')
+    .limit(1);
+    
+    return payment;
+  }
+
+  /**
    * Get payment records by room ID
    */
   async findByRoom(roomId, options = {}) {

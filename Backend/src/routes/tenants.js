@@ -20,6 +20,9 @@ router.use(authenticate);
 // GET /api/tenants/me - Get current tenant's profile (tenant only)
 router.get('/me', tenantController.getCurrentTenantProfile);
 
+// GET /api/tenants/dashboard - Get tenant dashboard data (tenant only)
+router.get('/dashboard', tenantController.getTenantDashboard);
+
 // PUT /api/tenants/me - Update current tenant's profile (tenant only)
 router.put('/me', validateTenantUpdate, tenantController.updateCurrentTenantProfile);
 

@@ -1,44 +1,34 @@
 import type { TenantDashboardRepository } from '../../domain/repositories/TenantDashboardRepository';
 import type { TenantDashboardData, QuickAction } from '../../domain/entities/TenantDashboard';
+import apiService from '@/services/apiService';
 
 export class TenantDashboardRepositoryImpl implements TenantDashboardRepository {
   async getDashboardData(): Promise<TenantDashboardData> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      const response = await apiService.getTenantDashboard();
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to fetch dashboard data');
+      }
 
-    return {
-      roomInfo: { 
-        roomNumber: "203", 
-        roomType: "Single Room" 
-      },
-      monthlyRent: 3450,
-      nextPaymentDue: "2024-02-01",
-      daysRemaining: 4,
-      accountStatus: "Active",
-      recentActivity: [
-        { 
-          id: "1",
-          type: "payment", 
-          description: "₱3,450 rent payment for January", 
-          status: "Paid", 
-          time: "2 hours ago" 
+      // Transform the API response to match the TenantDashboardData interface
+      const apiData = response.data;
+      
+      return {
+        roomInfo: {
+          roomNumber: apiData.roomInfo?.roomNumber || 'N/A',
+          roomType: apiData.roomInfo?.roomType || 'N/A'
         },
-        { 
-          id: "2",
-          type: "maintenance", 
-          description: "AC Repair Update", 
-          status: "In Progress", 
-          time: "14 hours ago" 
-        },
-        { 
-          id: "3",
-          type: "payment", 
-          description: "Payment Due Soon", 
-          status: "Pending", 
-          time: "1 day ago" 
-        }
-      ]
-    };
+        monthlyRent: apiData.monthlyRent || 0,
+        nextPaymentDue: apiData.nextPaymentDue || 'N/A',
+        daysRemaining: apiData.daysRemaining || 0,
+        accountStatus: apiData.accountStatus || 'Unknown',
+        recentActivity: apiData.recentActivity || []
+      };
+    } catch (error) {
+      console.error('Error fetching tenant dashboard data:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch dashboard data');
+    }
   }
 
   async getQuickActions(): Promise<QuickAction[]> {
@@ -48,25 +38,33 @@ export class TenantDashboardRepositoryImpl implements TenantDashboardRepository 
     return [
       {
         id: "1",
-        title: "View Payment History",
-        description: "Check your payment records",
-        icon: "dollar-sign",
+        title: "Pay Rent",
+        description: "Make your monthly rent payment",
+        icon: "CreditCard",
         path: "/tenant/payments",
-        variant: "secondary"
+        variant: "primary"
       },
       {
-        id: "2",
-        title: "Submit Maintenance Request",
-        description: "Report issues or request repairs",
-        icon: "wrench",
+        id: "2", 
+        title: "Report Issue",
+        description: "Submit a maintenance request",
+        icon: "Wrench",
         path: "/tenant/reports",
         variant: "secondary"
       },
       {
         id: "3",
+        title: "View Notifications",
+        description: "Check your latest updates",
+        icon: "Bell",
+        path: "/tenant/notifications",
+        variant: "secondary"
+      },
+      {
+        id: "4",
         title: "Update Profile",
-        description: "Manage your account information",
-        icon: "user",
+        description: "Manage your personal information",
+        icon: "User",
         path: "/tenant/profile",
         variant: "secondary"
       }

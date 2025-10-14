@@ -342,6 +342,30 @@ class TenantController {
     }
   }
 
+  // GET /api/tenants/dashboard - Get tenant dashboard data
+  async getTenantDashboard(req, res) {
+    try {
+      const userId = req.user.id;
+
+      // Verify user has tenant role
+      if (req.user.role !== 'tenant') {
+        return sendError(res, 'Only tenants can access this endpoint', 403);
+      }
+
+      const dashboardData = await tenantService.getTenantDashboardData(userId);
+
+      return sendSuccess(res, 'Tenant dashboard data retrieved successfully', dashboardData);
+    } catch (error) {
+      console.error('Get tenant dashboard error:', error);
+      
+      if (error.message === 'Tenant profile not found') {
+        return sendNotFound(res, 'Tenant profile not found. Please create your profile first.');
+      }
+      
+      return sendServerError(res, 'Failed to retrieve tenant dashboard data');
+    }
+  }
+
   // PUT /api/tenants/:id/status - Update tenant status (admin/staff only)
   async updateTenantStatus(req, res) {
     try {

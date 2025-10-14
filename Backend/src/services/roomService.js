@@ -179,17 +179,50 @@ class RoomService {
       await roomRepository.assignTenant(roomId, tenantId, rentAmount);
 
       // Update tenant's room information
-      await tenantRepository.update(tenantId, { 
+      const updatedTenant = await tenantRepository.update(tenantId, { 
         roomNumber: room.roomNumber,
         monthlyRent: rentAmount || room.monthlyRent,
         tenantStatus: 'active'
       });
 
+      // Create initial payment for the tenant
+      try {
+        const Payment = require('../models/Payment');
+        
+        const leaseStart = new Date(updatedTenant.leaseStartDate || Date.now());
+        const firstDueDate = new Date(leaseStart);
+        firstDueDate.setMonth(firstDueDate.getMonth() + 1);
+        
+        const periodEnd = new Date(leaseStart);
+        periodEnd.setMonth(periodEnd.getMonth() + 1);
+        periodEnd.setDate(periodEnd.getDate() - 1);
+        
+        await Payment.create({
+          tenant: tenantId,
+          room: roomId,
+          amount: rentAmount || room.monthlyRent,
+          paymentType: 'rent',
+          paymentMethod: 'cash',
+          dueDate: firstDueDate,
+          status: 'pending',
+          periodCovered: {
+            startDate: leaseStart,
+            endDate: periodEnd
+          },
+          description: 'Monthly rent payment'
+        });
+        
+        console.log('Initial payment created for tenant:', tenantId);
+      } catch (paymentError) {
+        console.error('Error creating initial payment:', paymentError);
+        // Don't throw - payment creation shouldn't block room assignment
+      }
+
       // Return updated room info
       const updatedRoom = await roomRepository.findById(roomId);
       return {
         room: this.formatRoomResponse(updatedRoom),
-        message: 'Tenant assigned to room successfully'
+        message: 'Tenant assigned to room successfully, initial payment created'
       };
     } catch (error) {
       throw error;
