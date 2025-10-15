@@ -4,6 +4,7 @@ import { RoomsRepositoryImpl } from '../../infrastructure/repositories/RoomsRepo
 import type { 
   Room, 
   CreateRoomRequest, 
+  UpdateRoomRequest,
   RoomFilters
 } from '../../domain/entities/Room';
 
@@ -62,7 +63,7 @@ export const useRooms = () => {
           amenities: room.amenities || [],
           floor: room.floor || 0,
           area: room.area || 0,
-          status: (isOccupied ? 'occupied' : 'available') as 'occupied' | 'available' | 'maintenance' | 'reserved',
+          status: (isOccupied ? 'occupied' : 'available') as 'occupied' | 'available' | 'maintenance' | 'reserved' | 'unavailable',
           occupancy: {
             current: isOccupied ? 1 : 0,
             max: room.capacity || 1
@@ -70,6 +71,7 @@ export const useRooms = () => {
           occupancyRate: isOccupied ? 
                         (1 / (room.capacity || 1)) * 100 : 0,
           isAvailable: isVacant,
+          isActive: room.isActive !== false, // Default to true if not specified
           currentTenants: isOccupied && room.assignee ? [room.assignee] : [],
           createdAt: room.createdAt,
           updatedAt: room.updatedAt
@@ -98,6 +100,20 @@ export const useRooms = () => {
     }
   }, [roomsService, fetchRooms]);
 
+  const updateRoom = useCallback(async (id: string, roomData: UpdateRoomRequest): Promise<Room> => {
+    try {
+      setError(null);
+      const updatedRoom = await roomsService.updateRoom(id, roomData);
+      // Refresh the rooms list after successful update
+      await fetchRooms();
+      return updatedRoom;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update room';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    }
+  }, [roomsService, fetchRooms]);
+
   const deleteRoom = useCallback(async (id: string): Promise<void> => {
     try {
       setError(null);
@@ -117,6 +133,7 @@ export const useRooms = () => {
     error,
     fetchRooms,
     createRoom,
+    updateRoom,
     deleteRoom,
     setError
   };

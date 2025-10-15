@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { X, Wifi, Tv, BookOpen, Bath, Wind, Eye, Refrigerator, Shirt, Bed, ChefHat, ShirtIcon } from 'lucide-react';
+import { useRooms } from '../hooks/useRooms';
 
 interface Room {
   _id: string;
   roomNumber: string;
-  roomType: 'single' | 'double' | 'shared' | 'suite';
+  roomType: 'single' | 'double' | 'triple' | 'quad' | 'suite' | 'studio';
   capacity: number;
   status: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
   monthlyRent: number;
-  securityDeposit?: number;
   amenities?: string[];
   description?: string;
   floor?: number;
   area?: number;
+  isActive?: boolean;
 }
 
 interface EditRoomModalProps {
@@ -25,13 +26,12 @@ interface EditRoomModalProps {
 interface EditFormData {
   // Basic Information
   roomNumber: string;
-  roomType: 'single' | 'double' | 'shared' | 'suite';
+  roomType: 'single' | 'double' | 'triple' | 'quad' | 'suite' | 'studio';
   capacity: number;
   status: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
   
   // Pricing Information
   monthlyRent: number;
-  securityDeposit: number;
   
   // Room Amenities
   amenities: string[];
@@ -42,6 +42,7 @@ interface EditFormData {
   // Additional Fields
   floor: number;
   area: number;
+  isActive: boolean;
 }
 
 const EditRoomModal: React.FC<EditRoomModalProps> = ({ 
@@ -56,16 +57,19 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
     capacity: 1,
     status: 'available',
     monthlyRent: 0,
-    securityDeposit: 0,
     amenities: [],
     description: '',
     floor: 1,
     area: 0,
+    isActive: true,
   });
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { updateRoom, isLoading, error: roomError } = useRooms();
+  const [localError, setLocalError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Combine errors from hook and local validation
+  const error = localError || roomError;
 
   const predefinedAmenities = [
     { name: 'Wifi', icon: Wifi },
@@ -90,23 +94,25 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
         capacity: room.capacity || 1,
         status: room.status || 'available',
         monthlyRent: room.monthlyRent || 0,
-        securityDeposit: room.securityDeposit || 0,
         amenities: room.amenities || [],
         description: room.description || '',
         floor: room.floor || 1,
         area: room.area || 0,
+        isActive: room.isActive !== undefined ? room.isActive : true,
       });
     }
-    setError(null);
+    setLocalError(null);
     setSuccess(null);
   }, [room]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'capacity' || name === 'monthlyRent' || name === 'securityDeposit' || name === 'floor' || name === 'area' 
+      [name]: name === 'capacity' || name === 'monthlyRent' || name === 'floor' || name === 'area' 
         ? Number(value) || 0 
+        : type === 'checkbox' 
+        ? (e.target as HTMLInputElement).checked
         : value
     }));
   };
@@ -131,55 +137,45 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
     e.preventDefault();
     
     if (!room) {
-      setError('No room selected for editing');
+      setLocalError('No room selected for editing');
       return;
     }
 
     const validationError = validateForm();
     if (validationError) {
-      setError(validationError);
+      setLocalError(validationError);
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
+    setLocalError(null);
     setSuccess(null);
 
     try {
-      // Import apiService dynamically to avoid circular dependencies
-      const { default: apiService } = await import('../../../../services/apiService');
-      
       const updateData = {
         roomNumber: formData.roomNumber,
         roomType: formData.roomType,
         capacity: formData.capacity,
         status: formData.status,
         monthlyRent: formData.monthlyRent,
-        securityDeposit: formData.securityDeposit,
         amenities: formData.amenities,
         description: formData.description || undefined,
         floor: formData.floor || undefined,
         area: formData.area || undefined,
+        isActive: formData.isActive,
       };
 
-      const response = await apiService.updateRoom(room._id, updateData);
-
-      if (response.success) {
-        setSuccess('Room updated successfully!');
-        onRoomUpdated();
-        
-        // Close modal after successful update
-        setTimeout(() => {
-          onClose();
-        }, 2000);
-      } else {
-        setError(response.message || 'Failed to update room');
-      }
+      await updateRoom(room._id, updateData);
+      
+      setSuccess('Room updated successfully!');
+      onRoomUpdated();
+      
+      // Close modal after successful update
+      setTimeout(() => {
+        onClose();
+      }, 2000);
 
     } catch (error: any) {
-      setError(error.message || 'Failed to update room');
-    } finally {
-      setIsLoading(false);
+      setLocalError(error.message || 'Failed to update room');
     }
   };
 
@@ -191,14 +187,14 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
         capacity: room.capacity || 1,
         status: room.status || 'available',
         monthlyRent: room.monthlyRent || 0,
-        securityDeposit: room.securityDeposit || 0,
         amenities: room.amenities || [],
         description: room.description || '',
         floor: room.floor || 1,
         area: room.area || 0,
+        isActive: room.isActive !== undefined ? room.isActive : true,
       });
     }
-    setError(null);
+    setLocalError(null);
     setSuccess(null);
     onClose();
   };
@@ -257,8 +253,10 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
                 >
                   <option value="single">Single</option>
                   <option value="double">Double</option>
-                  <option value="shared">Shared</option>
+                  <option value="triple">Triple</option>
+                  <option value="quad">Quad</option>
                   <option value="suite">Suite</option>
+                  <option value="studio">Studio</option>
                 </select>
               </div>
             </div>
@@ -291,7 +289,7 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
                   <option value="occupied">Occupied</option>
                   <option value="maintenance">Maintenance</option>
                   <option value="reserved">Reserved</option>
-                  <option value="unavailable">Not Available for Leasing</option>
+                  <option value="unavailable">Unavailable</option>
                 </select>
               </div>
             </div>
@@ -318,18 +316,7 @@ const EditRoomModal: React.FC<EditRoomModalProps> = ({
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Security Deposit</label>
-                <input
-                  type="number"
-                  name="securityDeposit"
-                  value={formData.securityDeposit}
-                  onChange={handleInputChange}
-                  min="0"
-                  placeholder="e.g., 1350"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+
             </div>
           </div>
 

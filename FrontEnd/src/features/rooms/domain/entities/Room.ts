@@ -1,7 +1,7 @@
 export interface Room {
   _id: string;
   roomNumber: string;
-  roomType: 'single' | 'double' | 'shared' | 'suite';
+  roomType: 'single' | 'double' | 'triple' | 'quad' | 'suite' | 'studio';
   capacity: number;
   monthlyRent: number;
   description?: string;
@@ -10,17 +10,21 @@ export interface Room {
   area?: number;
   status: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
   isAvailable: boolean;
-  currentTenants?: string[];
+  currentTenant?: {
+    _id: string;
+    name: string;
+    leaseStartDate?: string;
+    leaseEndDate?: string;
+  } | null;
   occupancy: {
     current: number;
     max: number;
   };
   occupancyRate: number;
-  maintenanceInfo?: {
+  maintenance?: {
     lastServiceDate?: string;
     nextServiceDate?: string;
     notes?: string;
-    status?: 'scheduled' | 'in_progress' | 'completed' | 'overdue';
   };
   rentalHistory?: {
     tenant: string;
@@ -28,13 +32,19 @@ export interface Room {
     endDate: string;
     rentAmount: number;
   }[];
+  photos?: {
+    url: string;
+    description?: string;
+    isPrimary?: boolean;
+  }[];
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateRoomRequest {
   roomNumber: string;
-  roomType: 'single' | 'double' | 'shared' | 'suite';
+  roomType: 'single' | 'double' | 'triple' | 'quad' | 'suite' | 'studio';
   capacity: number;
   monthlyRent: number;
   description?: string;
@@ -46,7 +56,7 @@ export interface CreateRoomRequest {
 
 export interface UpdateRoomRequest {
   roomNumber?: string;
-  roomType?: 'single' | 'double' | 'shared' | 'suite';
+  roomType?: 'single' | 'double' | 'triple' | 'quad' | 'suite' | 'studio';
   capacity?: number;
   monthlyRent?: number;
   description?: string;
@@ -58,7 +68,7 @@ export interface UpdateRoomRequest {
 
 export interface RoomFilters {
   status?: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
-  roomType?: 'single' | 'double' | 'shared' | 'suite';
+  roomType?: 'single' | 'double' | 'triple' | 'quad' | 'suite' | 'studio';
   minRent?: number;
   maxRent?: number;
   floor?: number;

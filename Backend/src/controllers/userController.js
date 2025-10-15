@@ -67,6 +67,7 @@ class UserController {
         const tenant = tenantMap.get(user._id.toString());
         
         return {
+          _id: user._id,
           id: user._id,
           email: user.email,
           role: user.role,
@@ -77,6 +78,7 @@ class UserController {
           username: user.username,
           lastLogin: user.lastLogin,
           isActive: user.isActive,
+          createdAt: user.createdAt,
           tenant: tenant ? {
             firstName: tenant.firstName,
             lastName: tenant.lastName,
@@ -125,6 +127,7 @@ class UserController {
       }
 
       const formattedUser = {
+        _id: user._id,
         id: user._id,
         username: user.username,
         email: user.email,
@@ -133,6 +136,27 @@ class UserController {
         lastLogin: user.lastLogin,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        // Include all tenant fields for edit form population
+        ...(tenant && {
+          firstName: tenant.firstName,
+          lastName: tenant.lastName,
+          phoneNumber: tenant.phoneNumber,
+          dateOfBirth: tenant.dateOfBirth,
+          occupation: tenant.occupation,
+          street: tenant.street,
+          province: tenant.province,
+          city: tenant.city,
+          zipCode: tenant.zipCode,
+          roomNumber: tenant.roomNumber,
+          monthlyRent: tenant.monthlyRent,
+          securityDeposit: tenant.securityDeposit,
+          idType: tenant.idType,
+          idNumber: tenant.idNumber,
+          emergencyContact: tenant.emergencyContact,
+          tenantStatus: tenant.tenantStatus,
+          leaseStartDate: tenant.leaseStartDate,
+          leaseEndDate: tenant.leaseEndDate
+        }),
         tenant: tenant ? {
           id: tenant._id,
           firstName: tenant.firstName,
@@ -153,7 +177,7 @@ class UserController {
     }
   }
 
-  // PUT /api/users/:id - Update user status/role (admin only)
+  // PUT /api/users/:id - Update user and tenant information (admin only)
   async updateUser(req, res) {
     try {
       const errors = validationResult(req);
@@ -168,30 +192,123 @@ class UserController {
       }
 
       const { id } = req.params;
-      const { isActive, role } = req.body;
+      const { 
+        username, 
+        email, 
+        isActive, 
+        role,
+        // Tenant-specific fields
+        firstName,
+        lastName,
+        phoneNumber,
+        dateOfBirth,
+        occupation,
+        street,
+        province,
+        city,
+        zipCode,
+        roomNumber,
+        monthlyRent,
+        securityDeposit,
+        idType,
+        idNumber,
+        emergencyContact
+      } = req.body;
 
       const user = await User.findById(id);
       if (!user) {
         return sendNotFound(res, 'User not found');
       }
 
-      // Update fields if provided
+      // Update user fields if provided
+      if (username && username !== user.username) {
+        // Check if username already exists
+        const existingUser = await User.findOne({ username, _id: { $ne: id } });
+        if (existingUser) {
+          return sendError(res, 'Username already exists', 400);
+        }
+        user.username = username;
+      }
+      
+      if (email && email !== user.email) {
+        // Check if email already exists
+        const existingUser = await User.findOne({ email, _id: { $ne: id } });
+        if (existingUser) {
+          return sendError(res, 'Email already exists', 400);
+        }
+        user.email = email;
+      }
+
       if (typeof isActive === 'boolean') {
         user.isActive = isActive;
       }
+      
+      const oldRole = user.role;
       if (role && ['admin', 'staff', 'tenant'].includes(role)) {
         user.role = role;
       }
 
       await user.save();
 
-      // Get updated user data with tenant info if applicable
+      // Handle tenant-specific updates
       let tenant = null;
+      
+      if (user.role === 'tenant') {
+        // Find existing tenant record
+        tenant = await Tenant.findOne({ userId: id });
+        
+        // If user role changed to tenant and no tenant record exists, create one
+        if (!tenant && oldRole !== 'tenant') {
+          // Create tenant record with minimal required fields
+          tenant = new Tenant({
+            userId: id,
+            firstName: firstName || 'Unknown',
+            lastName: lastName || 'User',
+            phoneNumber: phoneNumber || '0000000000',
+            dateOfBirth: dateOfBirth || new Date('1990-01-01'),
+            idType: idType || 'other',
+            idNumber: idNumber || 'TEMP-ID',
+            emergencyContact: emergencyContact || {
+              name: 'Emergency Contact',
+              relationship: 'Unknown',
+              phoneNumber: '0000000000'
+            }
+          });
+        }
+        
+        // Update tenant fields if tenant record exists or was just created
+        if (tenant) {
+          if (firstName) tenant.firstName = firstName;
+          if (lastName) tenant.lastName = lastName;
+          if (phoneNumber) tenant.phoneNumber = phoneNumber;
+          if (dateOfBirth) tenant.dateOfBirth = new Date(dateOfBirth);
+          if (occupation) tenant.occupation = occupation;
+          if (street) tenant.street = street;
+          if (province) tenant.province = province;
+          if (city) tenant.city = city;
+          if (zipCode) tenant.zipCode = zipCode;
+          if (roomNumber) tenant.roomNumber = roomNumber;
+          if (monthlyRent) tenant.monthlyRent = parseFloat(monthlyRent);
+          if (securityDeposit) tenant.securityDeposit = parseFloat(securityDeposit);
+          if (idType) tenant.idType = idType;
+          if (idNumber) tenant.idNumber = idNumber;
+          if (emergencyContact) tenant.emergencyContact = emergencyContact;
+          
+          await tenant.save();
+        }
+      } else if (oldRole === 'tenant' && user.role !== 'tenant') {
+        // If role changed from tenant to something else, optionally keep or remove tenant record
+        // For now, we'll keep the tenant record for data integrity
+        tenant = await Tenant.findOne({ userId: id }).lean();
+      }
+
+      // Get updated tenant data
       if (user.role === 'tenant') {
         tenant = await Tenant.findOne({ userId: id }).lean();
       }
 
       const formattedUser = {
+        _id: user._id,
         id: user._id,
         username: user.username,
         email: user.email,

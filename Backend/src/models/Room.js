@@ -57,7 +57,7 @@ const roomSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: {
-      values: ['available', 'occupied', 'maintenance', 'reserved'],
+      values: ['available', 'occupied', 'maintenance', 'reserved', 'unavailable'],
       message: '{VALUE} is not a valid room status',
     },
     default: 'available',
@@ -190,7 +190,9 @@ roomSchema.pre('save', function(next) {
 
 // Instance method to check if room can accommodate more tenants
 roomSchema.methods.canAccommodate = function(additionalTenants = 1) {
-  return (this.occupancy.current + additionalTenants) <= this.occupancy.max && this.status !== 'maintenance';
+  return (this.occupancy.current + additionalTenants) <= this.occupancy.max && 
+         this.status !== 'maintenance' && 
+         this.status !== 'unavailable';
 };
 
 // Instance method to assign tenant
@@ -292,6 +294,24 @@ roomSchema.statics.getStatistics = function() {
           $sum: {
             $cond: [
               { $eq: ['$status', 'maintenance'] },
+              1,
+              0
+            ]
+          }
+        },
+        reservedRooms: {
+          $sum: {
+            $cond: [
+              { $eq: ['$status', 'reserved'] },
+              1,
+              0
+            ]
+          }
+        },
+        unavailableRooms: {
+          $sum: {
+            $cond: [
+              { $eq: ['$status', 'unavailable'] },
               1,
               0
             ]

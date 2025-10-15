@@ -279,7 +279,8 @@ class RoomService {
           availableRooms: stats.availableRooms,
           occupiedRooms: stats.occupiedRooms,
           maintenanceRooms: stats.maintenanceRooms,
-          reservedRooms: stats.totalRooms - stats.availableRooms - stats.occupiedRooms - stats.maintenanceRooms,
+          reservedRooms: stats.reservedRooms || 0,
+          unavailableRooms: stats.unavailableRooms || 0,
         },
         occupancy: {
           totalCapacity: stats.totalCapacity,
@@ -330,7 +331,7 @@ class RoomService {
   // Get rooms by status
   async getRoomsByStatus(status) {
     try {
-      const validStatuses = ['available', 'occupied', 'maintenance', 'reserved'];
+      const validStatuses = ['available', 'occupied', 'maintenance', 'reserved', 'unavailable'];
       if (!validStatuses.includes(status)) {
         throw new Error('Invalid room status');
       }

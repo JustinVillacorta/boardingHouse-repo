@@ -34,12 +34,19 @@ const ArchiveUserDialog: React.FC<ArchiveUserDialogProps> = ({
       return;
     }
 
+    // Get the user ID (handle both _id and id properties)
+    const userId = user._id || (user as any).id;
+    if (!userId) {
+      setError('Invalid user ID');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
       // Call API to archive user (set isActive to false)
-      const response = await apiService.updateUser(user._id, {
+      const response = await apiService.updateUser(userId, {
         isActive: false
       });
 

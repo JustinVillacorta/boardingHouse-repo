@@ -440,8 +440,8 @@ const validateRoomCreate = [
   
   body('status')
     .optional()
-    .isIn(['available', 'occupied', 'maintenance', 'reserved'])
-    .withMessage('Status must be available, occupied, maintenance, or reserved'),
+    .isIn(['available', 'occupied', 'maintenance', 'reserved', 'unavailable'])
+    .withMessage('Status must be available, occupied, maintenance, reserved, or unavailable'),
 ];
 
 // Validation rules for room update
@@ -495,8 +495,8 @@ const validateRoomUpdate = [
   
   body('status')
     .optional()
-    .isIn(['available', 'occupied', 'maintenance', 'reserved'])
-    .withMessage('Status must be available, occupied, maintenance, or reserved'),
+    .isIn(['available', 'occupied', 'maintenance', 'reserved', 'unavailable'])
+    .withMessage('Status must be available, occupied, maintenance, reserved, or unavailable'),
 ];
 
 // Validation rules for tenant assignment to room

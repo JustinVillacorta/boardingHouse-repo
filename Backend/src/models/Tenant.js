@@ -40,6 +40,32 @@ const TenantSchema = new mongoose.Schema(
         message: 'Date of birth must be in the past',
       },
     },
+    occupation: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Occupation must be less than 100 characters'],
+    },
+    // Address Information
+    street: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Street address must be less than 100 characters'],
+    },
+    province: {
+      type: String,
+      trim: true,
+      maxlength: [50, 'Province must be less than 50 characters'],
+    },
+    city: {
+      type: String,
+      trim: true,
+      maxlength: [50, 'City must be less than 50 characters'],
+    },
+    zipCode: {
+      type: String,
+      trim: true,
+      maxlength: [10, 'Zip code must be less than 10 characters'],
+    },
     // Identification
     idType: {
       type: String,

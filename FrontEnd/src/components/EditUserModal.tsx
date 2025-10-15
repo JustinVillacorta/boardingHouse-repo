@@ -84,32 +84,101 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Update form data when user prop changes
+  // Fetch full user details and update form data when user prop changes
   useEffect(() => {
+    const fetchUserDetails = async () => {
+      const userId = user?._id || (user as any)?.id;
+      if (user && userId) {
+        try {
+          setIsLoading(true);
+          const response = await apiService.getUserById(userId);
+          
+          if (response.success && response.data) {
+            const userData = response.data;
+            setFormData({
+              username: userData.username,
+              email: userData.email,
+              role: userData.role === 'admin' ? 'staff' : userData.role,
+              isActive: userData.isActive,
+              firstName: userData.firstName || '',
+              lastName: userData.lastName || '',
+              dateOfBirth: userData.dateOfBirth ? userData.dateOfBirth.split('T')[0] : '',
+              phoneNumber: userData.phoneNumber || '',
+              occupation: userData.occupation || '',
+              street: userData.street || '',
+              province: userData.province || '',
+              city: userData.city || '',
+              zipCode: userData.zipCode || '',
+              roomNumber: userData.roomNumber || '',
+              monthlyRent: userData.monthlyRent ? String(userData.monthlyRent) : '',
+              securityDeposit: userData.securityDeposit ? String(userData.securityDeposit) : '',
+              idType: userData.idType || 'passport',
+              idNumber: userData.idNumber || '',
+              emergencyContactName: userData.emergencyContact?.name || '',
+              emergencyContactRelationship: userData.emergencyContact?.relationship || '',
+              emergencyContactPhone: userData.emergencyContact?.phoneNumber || '',
+            });
+          } else {
+            // Fallback to the basic user data passed as prop
+            setFormData({
+              username: user.username,
+              email: user.email,
+              role: user.role === 'admin' ? 'staff' : user.role,
+              isActive: user.isActive,
+              firstName: '',
+              lastName: '',
+              dateOfBirth: '',
+              phoneNumber: '',
+              occupation: '',
+              street: '',
+              province: '',
+              city: '',
+              zipCode: '',
+              roomNumber: '',
+              monthlyRent: '',
+              securityDeposit: '',
+              idType: 'passport',
+              idNumber: '',
+              emergencyContactName: '',
+              emergencyContactRelationship: '',
+              emergencyContactPhone: '',
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching user details:', error);
+          setError('Failed to load user details');
+          // Fallback to the basic user data passed as prop
+          setFormData({
+            username: user.username,
+            email: user.email,
+            role: user.role === 'admin' ? 'staff' : user.role,
+            isActive: user.isActive,
+            firstName: '',
+            lastName: '',
+            dateOfBirth: '',
+            phoneNumber: '',
+            occupation: '',
+            street: '',
+            province: '',
+            city: '',
+            zipCode: '',
+            roomNumber: '',
+            monthlyRent: '',
+            securityDeposit: '',
+            idType: 'passport',
+            idNumber: '',
+            emergencyContactName: '',
+            emergencyContactRelationship: '',
+            emergencyContactPhone: '',
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
     if (user) {
-      setFormData({
-        username: user.username,
-        email: user.email,
-        role: user.role === 'admin' ? 'staff' : user.role,
-        isActive: user.isActive,
-        firstName: (user as any).firstName || '',
-        lastName: (user as any).lastName || '',
-        dateOfBirth: (user as any).dateOfBirth || '',
-        phoneNumber: (user as any).phoneNumber || '',
-        occupation: (user as any).occupation || '',
-        street: (user as any).street || '',
-        province: (user as any).province || '',
-        city: (user as any).city || '',
-        zipCode: (user as any).zipCode || '',
-        roomNumber: (user as any).roomNumber || '',
-        monthlyRent: (user as any).monthlyRent ? String((user as any).monthlyRent) : '',
-        securityDeposit: (user as any).securityDeposit ? String((user as any).securityDeposit) : '',
-        idType: (user as any).idType || 'passport',
-        idNumber: (user as any).idNumber || '',
-        emergencyContactName: (user as any).emergencyContact?.name || '',
-        emergencyContactRelationship: (user as any).emergencyContact?.relationship || '',
-        emergencyContactPhone: (user as any).emergencyContact?.phoneNumber || '',
-      });
+      fetchUserDetails();
     }
     setError(null);
     setSuccess(null);
@@ -202,6 +271,13 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
       return;
     }
 
+    // Get the user ID (handle both _id and id properties)
+    const userId = user._id || (user as any).id;
+    if (!userId) {
+      setError('Invalid user ID');
+      return;
+    }
+
     const validationError = validateForm();
     if (validationError) {
       setError(validationError);
@@ -244,7 +320,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
         };
       }
 
-      const response = await apiService.updateUser(user._id, updateData);
+      const response = await apiService.updateUser(userId, updateData);
 
       if (response.success) {
         setSuccess('User updated successfully!');
@@ -266,31 +342,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   };
 
   const handleCancel = () => {
-    if (user) {
-      setFormData({
-        username: user.username,
-        email: user.email,
-        role: user.role === 'admin' ? 'staff' : user.role,
-        isActive: user.isActive,
-        firstName: (user as any).firstName || '',
-        lastName: (user as any).lastName || '',
-        dateOfBirth: (user as any).dateOfBirth || '',
-        phoneNumber: (user as any).phoneNumber || '',
-        occupation: (user as any).occupation || '',
-        street: (user as any).street || '',
-        province: (user as any).province || '',
-        city: (user as any).city || '',
-        zipCode: (user as any).zipCode || '',
-        roomNumber: (user as any).roomNumber || '',
-        monthlyRent: (user as any).monthlyRent ? String((user as any).monthlyRent) : '',
-        securityDeposit: (user as any).securityDeposit ? String((user as any).securityDeposit) : '',
-        idType: (user as any).idType || 'passport',
-        idNumber: (user as any).idNumber || '',
-        emergencyContactName: (user as any).emergencyContact?.name || '',
-        emergencyContactRelationship: (user as any).emergencyContact?.relationship || '',
-        emergencyContactPhone: (user as any).emergencyContact?.phoneNumber || '',
-      });
-    }
     setError(null);
     setSuccess(null);
     onClose();
@@ -317,38 +368,57 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* User Type Selection */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">User Type</label>
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => handleRoleChange('tenant')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                  formData.role === 'tenant'
-                    ? 'bg-blue-50 border-blue-500 text-blue-700'
-                    : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                Tenant
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleChange('staff')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                  formData.role === 'staff'
-                    ? 'bg-blue-50 border-blue-500 text-blue-700'
-                    : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <User className="w-4 h-4" />
-                Staff
-              </button>
-            </div>
+        {/* Error and Success Messages */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mx-6">
+            <p className="text-red-700 text-sm">{error}</p>
           </div>
+        )}
+
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mx-6">
+            <p className="text-green-700 text-sm">{success}</p>
+          </div>
+        )}
+
+        {/* Form */}
+        {isLoading ? (
+          <div className="p-6 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Loading user details...</span>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            {/* User Type Selection */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">User Type</label>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => handleRoleChange('tenant')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                    formData.role === 'tenant'
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  Tenant
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRoleChange('staff')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                    formData.role === 'staff'
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  Staff
+                </button>
+              </div>
+            </div>
 
           {/* Personal Information */}
           <div className="space-y-4">
@@ -653,19 +723,6 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
             </div>
           )}
 
-          {/* Error and Success Messages */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-
-          {success && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-green-700 text-sm">{success}</p>
-            </div>
-          )}
-
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
             <button
@@ -684,6 +741,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

@@ -389,7 +389,7 @@ const RoomsPage: React.FC = () => {
                   <option value="occupied">Occupied</option>
                   <option value="maintenance">Maintenance</option>
                   <option value="reserved">Reserved</option>
-                  <option value="unavailable">Not Available for Leasing</option>
+                  <option value="unavailable">Unavailable</option>
                 </select>
               </div>
               

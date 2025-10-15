@@ -11,13 +11,12 @@ interface CreateRoomModalProps {
 interface FormData {
   // Basic Information
   roomNumber: string;
-  roomType: 'single' | 'double' | 'shared' | 'suite';
+  roomType: 'single' | 'double' | 'triple' | 'quad' | 'suite' | 'studio';
   capacity: number;
   status: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
   
   // Pricing Information
   monthlyRent: number;
-  securityDeposit: number;
   
   // Room Amenities
   amenities: string[];
@@ -37,7 +36,6 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
     capacity: 1,
     status: 'available',
     monthlyRent: 0,
-    securityDeposit: 0,
     amenities: [],
     description: '',
     floor: 1,
@@ -66,7 +64,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'capacity' || name === 'monthlyRent' || name === 'securityDeposit' || name === 'floor' || name === 'area' 
+      [name]: name === 'capacity' || name === 'monthlyRent' || name === 'floor' || name === 'area' 
         ? Number(value) || 0 
         : value
     }));
@@ -144,7 +142,6 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
       capacity: 1,
       status: 'available',
       monthlyRent: 0,
-      securityDeposit: 0,
       amenities: [],
       description: '',
       floor: 1,
@@ -208,8 +205,10 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
                 >
                   <option value="single">Single</option>
                   <option value="double">Double</option>
-                  <option value="shared">Shared</option>
+                  <option value="triple">Triple</option>
+                  <option value="quad">Quad</option>
                   <option value="suite">Suite</option>
+                  <option value="studio">Studio</option>
                 </select>
               </div>
             </div>
@@ -242,7 +241,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
                   <option value="occupied">Occupied</option>
                   <option value="maintenance">Maintenance</option>
                   <option value="reserved">Reserved</option>
-                  <option value="unavailable">Not Available for Leasing</option>
+                  <option value="unavailable">Unavailable</option>
                 </select>
               </div>
             </div>
@@ -269,18 +268,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Security Deposit</label>
-                <input
-                  type="number"
-                  name="securityDeposit"
-                  value={formData.securityDeposit}
-                  onChange={handleInputChange}
-                  min="0"
-                  placeholder="e.g., 1350"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+
             </div>
           </div>
 
