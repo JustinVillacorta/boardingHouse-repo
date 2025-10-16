@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import ForgotPasswordModal from '../../components/ForgotPasswordModal';
 
 // MODEL
 interface LoginForm {
@@ -43,7 +44,7 @@ export default function LoginPage() {
 
   const [formData, setFormData] = useState<LoginForm>({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
 
@@ -66,11 +67,6 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!termsAccepted) {
-      setMessage({ text: 'Please accept the Terms & Conditions', type: 'error' });
-      return;
-    }
 
     // Validate form data
     const validation = UserModel.validateUser(formData);
@@ -189,20 +185,12 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="terms"
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded"
-                />
-                <label htmlFor="terms" className="ml-2 text-sm text-gray-700">
-                  Terms & Conditions
-                </label>
-              </div>
-              <button type="button" className="text-sm text-blue-600 font-medium">
+            <div className="flex items-center justify-end">
+              <button 
+                type="button" 
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-blue-600 font-medium hover:underline"
+              >
                 Forgot Password?
               </button>
             </div>
@@ -229,6 +217,11 @@ export default function LoginPage() {
 
         </div>
       </div>
+      
+      <ForgotPasswordModal 
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+      />
     </div>
   );
 }

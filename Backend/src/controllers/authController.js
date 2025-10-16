@@ -57,12 +57,9 @@ class AuthController {
         });
       }
 
-      const { identifier, username, email, password } = req.body;
-      
-      // Determine the identifier to use (priority: identifier > email > username)
-      const loginIdentifier = identifier || email || username;
+      const { email, password } = req.body;
 
-      const result = await authService.login({ identifier: loginIdentifier, password });
+      const result = await authService.login({ identifier: email, password });
 
       return sendSuccess(res, 'Login successful', result);
     } catch (error) {
