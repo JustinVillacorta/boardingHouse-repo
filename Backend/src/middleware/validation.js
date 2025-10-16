@@ -27,17 +27,12 @@ const validateRegister = [
 
 // Validation rules for user login
 const validateLogin = [
-  body()
-    .custom((value, { req }) => {
-      const { identifier, username, email } = req.body;
-      
-      // Check if at least one identifier is provided
-      if (!identifier && !username && !email) {
-        throw new Error('Email, username, or identifier is required');
-      }
-      
-      return true;
-    }),
+  body('email')
+    .notEmpty()
+    .withMessage('Email is required')
+    .isEmail()
+    .withMessage('Please provide a valid email address')
+    .normalizeEmail(),
   
   body('password')
     .notEmpty()

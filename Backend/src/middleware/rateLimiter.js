@@ -17,7 +17,7 @@ const generalLimiter = rateLimit({
 // Strict rate limiting for authentication routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 requests per windowMs
+  max: 100, // limit each IP to 10 requests per windowMs
   message: {
     success: false,
     message: 'Too many authentication attempts from this IP, please try again later.',
@@ -31,7 +31,7 @@ const authLimiter = rateLimit({
 // Very strict rate limiting for password reset
 const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // limit each IP to 3 requests per hour
+  max: 100, // limit each IP to 3 requests per hour
   message: {
     success: false,
     message: 'Too many password reset attempts from this IP, please try again later.',
