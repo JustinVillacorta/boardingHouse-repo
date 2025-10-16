@@ -407,12 +407,53 @@ class ApiService {
   }
 
   // Notifications methods
-  async getNotifications(): Promise<ApiResponse> {
-    return this.request('/notifications');
+  async getNotifications(params: PaginationParams = {}): Promise<ApiResponse> {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/notifications${queryString ? '?' + queryString : ''}`);
+  }
+
+  async getAllNotifications(params: PaginationParams = {}): Promise<ApiResponse> {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/notifications/all${queryString ? '?' + queryString : ''}`);
+  }
+
+  async getNotificationById(id: string): Promise<ApiResponse> {
+    return this.request(`/notifications/${id}`);
+  }
+
+  async createNotification(notificationData: any): Promise<ApiResponse> {
+    return this.request('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(notificationData),
+    });
   }
 
   async markNotificationAsRead(id: string): Promise<ApiResponse> {
     return this.request(`/notifications/${id}/read`, { method: 'PUT' });
+  }
+
+  async markAllNotificationsAsRead(): Promise<ApiResponse> {
+    return this.request('/notifications/mark-all-read', { method: 'PUT' });
+  }
+
+  async deleteNotification(id: string): Promise<ApiResponse> {
+    return this.request(`/notifications/${id}`, { method: 'DELETE' });
+  }
+
+  async broadcastNotification(broadcastData: any): Promise<ApiResponse> {
+    return this.request('/notifications/broadcast', {
+      method: 'POST',
+      body: JSON.stringify(broadcastData),
+    });
+  }
+
+  async getNotificationStats(systemWide: boolean = false): Promise<ApiResponse> {
+    const queryString = systemWide ? '?systemWide=true' : '';
+    return this.request(`/notifications/stats${queryString}`);
+  }
+
+  async cleanupExpiredNotifications(): Promise<ApiResponse> {
+    return this.request('/notifications/cleanup', { method: 'DELETE' });
   }
 }
 

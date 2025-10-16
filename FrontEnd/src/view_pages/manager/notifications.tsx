@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation  } from 'react-router-dom';
 import { 
   Search, 
@@ -8,86 +8,34 @@ import {
   Wrench,
   BellDot,
   LogOut,
-  Bell,
   User,
   CheckCircle, 
-  Play, 
-  Pause,
   Clock, 
   AlertCircle,
-  Calendar
+  Plus,
+  RotateCcw
 } from 'lucide-react';
 import { useAuth } from "../../contexts/AuthContext";
+import type { Notification } from "../../types/notification";
+import notificationService from "../../services/notificationService";
+import NotificationCard from "../../components/notifications/NotificationCard";
+import NotificationDropdown from "../../components/notifications/NotificationDropdown";
+import CreateNotificationModal from "../../components/notifications/CreateNotificationModal";
 
 
 
 // ✅ Define allowed status keys
-type StatusKey = "all" | "completed" | "maintenance" | "complaint" | "pending";
-
-/* -------------------- SAMPLE TASK DATA -------------------- */
-const tasks = [
-  {
-    id: 1,
-    title: "Light Bulb",
-    description: "Bedroom light bulb needs replacement",
-    status: "pending",
-    priority: "high",
-    assignee: "Sarah Chen",
-    dueDate: "2024-03-15",
-    progress: 50,
-  },
-  {
-    id: 2,
-    title: "Air Conditioning",
-    description: "AC not cooling properly",
-    status: "maintenance",
-    priority: "high",
-    assignee: "Mike Johnson",
-    dueDate: "2024-03-20",
-    progress: 65,
-  },
-  {
-    id: 3,
-    title: "Leaky Faucet",
-    description: "Bathroom faucet drips constantly.",
-    status: "maintenance",
-    priority: "medium",
-    assignee: "Alex Rivera",
-    dueDate: "2024-03-25",
-    progress: 30,
-  },
-  {
-    id: 4,
-    title: "Loud Noise On Next Room",
-    description: "Noise complaint at room 382",
-    status: "complaint",
-    priority: "low",
-    assignee: "Mia Khalifa",
-    dueDate: "2024-03-30",
-    progress: 0,
-  },
-  {
-    id: 5,
-    title: "Broken Window",
-    description: "I can't close the window",
-    status: "completed",
-    priority: "low",
-    assignee: "Emma Watson",
-    dueDate: "2024-03-30",
-    progress: 100,
-  },
-];
+type StatusKey = "all" | "unread" | "read" | "urgent" | "high";
 
 /* -------------------- TOP NAVBAR -------------------- */
-const TopNavbar: React.FC = () => {
+const TopNavbar: React.FC<{ 
+  notifications: Notification[]; 
+  unreadCount: number; 
+  onMarkAsRead: (id: string) => void;
+  onMarkAllAsRead: () => void;
+  onRefreshNotifications: () => void;
+}> = ({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead, onRefreshNotifications }) => {
   const navigate = useNavigate();
-  const [showNotifications, setShowNotifications] = useState(false);
-
-  const notifications = [
-    { id: 1, text: "Need Better Notifications Design" },
-    { id: 2, text: "Make the Website Responsive" },
-    { id: 3, text: "Fix Bug of Able to go Back to a Page" },
-  ];
 
   return (
     <header className="bg-blue-50 shadow-sm border-b border-gray-200 px-4 lg:px-6 py-9 relative">
@@ -104,7 +52,6 @@ const TopNavbar: React.FC = () => {
           </p>
         </div>
 
-
         {/* Right */}
         <div className="flex items-center space-x-4">
           {/* Search Bar */}
@@ -112,49 +59,20 @@ const TopNavbar: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search for anything..."
+              placeholder="Search notifications..."
               className="pl-10 pr-4 py-2 w-[500px] border border-gray-300 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
           {/* Notifications */}
-          <div className="relative">
-            <button
-              className="p-2 text-gray-500 hover:text-gray-700 relative -ml-2"
-              onClick={() => setShowNotifications((prev) => !prev)}
-            >
-              <Bell className="w-6 h-6" />
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-            </button>
-            {showNotifications && (
-              <div className="absolute right-0 mt-3 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                <div className="p-4 border-b border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-700">
-                    Notifications
-                  </h3>
-                </div>
-                <ul className="max-h-80 overflow-y-auto">
-                  {notifications.map((note, idx) => (
-                    <li
-                      key={note.id}
-                      className="px-4 py-4 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer"
-                    >
-                      {note.text}
-                      {idx < notifications.length - 1 && (
-                        <hr className="mt-4 border-gray-200" />
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                <div className="p-3 border-t border-gray-200 text-center">
-                  <button className="text-blue-600 text-sm font-medium hover:underline">
-                    View All
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
+          <NotificationDropdown
+            notifications={notifications.slice(0, 5)}
+            unreadCount={unreadCount}
+            onMarkAsRead={onMarkAsRead}
+            onMarkAllAsRead={onMarkAllAsRead}
+            onViewAll={() => navigate('/notifications')}
+            onRefresh={onRefreshNotifications}
+          />
         </div>
       </div>
     </header>
@@ -304,222 +222,332 @@ const Sidebar: React.FC = () => {
   );
 };
 
-/* -------------------- HELPERS -------------------- */
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case "completed":
-      return <CheckCircle className="w-4 h-4 text-green-500" />;
-    case "maintenance":
-      return <Play className="w-4 h-4 text-blue-500" />;
-    case "complaint":
-      return <Pause className="w-4 h-4 text-orange-500" />;
-    case "Pending":
-      return <Clock className="w-4 h-4 text-red-500" />;
-    default:
-      return <AlertCircle className="w-4 h-4 text-gray-500" />;
-  }
-};
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "completed":
-      return "bg-green-100 text-green-800";
-    case "maintenance":
-      return "bg-blue-100 text-blue-800";
-    case "complaint":
-      return "bg-red-100 text-red-800";
-    case "pending":
-      return "bg-orange-100 text-orange-800";
-    default:
-      return "bg-gray-100 text-gray-800";
-  }
-};
-
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "high":
-      return "border-l-red-500";
-    case "medium":
-      return "border-l-yellow-500";
-    case "low":
-      return "border-l-green-500";
-    default:
-      return "border-l-gray-500";
-  }
-};  
-
-/* -------------------- MAIN REPORT COMPONENT -------------------- */
+/* -------------------- MAIN NOTIFICATIONS COMPONENT -------------------- */
 const Notifications: React.FC = () => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
   const [activeFilter, setActiveFilter] = useState<StatusKey>("all");
-
-  const filteredTasks = tasks.filter((task) => {
-    if (activeFilter === "all") return true;
-    return task.status === activeFilter;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [stats, setStats] = useState({
+    total: 0,
+    unread: 0,
+    read: 0,
+    urgent: 0,
+    high: 0
   });
+  const { user } = useAuth();
 
-  const statusCounts: Record<StatusKey, number> = {
-    all: tasks.length,
-    completed: tasks.filter((t) => t.status === "completed").length,
-    "maintenance": tasks.filter((t) => t.status === "maintenance").length,
-    "complaint": tasks.filter((t) => t.status === "complaint").length,
-    pending: tasks.filter((t) => t.status === "pending").length,
+  // Load notifications
+  const loadNotifications = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { notifications: notificationData } = await notificationService.getUserNotifications();
+      setNotifications(notificationData);
+      updateStats(notificationData);
+    } catch (error: any) {
+      console.error('Failed to load notifications:', error);
+      setError('Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Update statistics
+  const updateStats = (notificationData: Notification[]) => {
+    const newStats = {
+      total: notificationData.length,
+      unread: notificationData.filter(n => n.status === 'unread').length,
+      read: notificationData.filter(n => n.status === 'read').length,
+      urgent: notificationData.filter(n => n.priority === 'urgent').length,
+      high: notificationData.filter(n => n.priority === 'high').length,
+    };
+    setStats(newStats);
+  };
+
+  // Filter notifications
+  const filterNotifications = () => {
+    let filtered = [...notifications];
+
+    // Apply status filter
+    if (activeFilter !== 'all') {
+      if (activeFilter === 'unread' || activeFilter === 'read') {
+        filtered = filtered.filter(n => n.status === activeFilter);
+      } else if (activeFilter === 'urgent' || activeFilter === 'high') {
+        filtered = filtered.filter(n => n.priority === activeFilter);
+      }
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(n =>
+        n.title.toLowerCase().includes(query) ||
+        n.message.toLowerCase().includes(query) ||
+        n.type.toLowerCase().includes(query)
+      );
+    }
+
+    setFilteredNotifications(filtered);
+  };
+
+  // Mark notification as read
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await notificationService.markAsRead(id);
+      const updatedNotifications = notifications.map(n =>
+        n.id === id ? { ...n, status: 'read' as const } : n
+      );
+      setNotifications(updatedNotifications);
+      updateStats(updatedNotifications);
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  // Mark all notifications as read
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead();
+      const updatedNotifications = notifications.map(n => ({ ...n, status: 'read' as const }));
+      setNotifications(updatedNotifications);
+      updateStats(updatedNotifications);
+    } catch (error) {
+      console.error('Failed to mark all notifications as read:', error);
+    }
+  };
+
+  // Delete notification
+  const handleDeleteNotification = async (id: string) => {
+    try {
+      await notificationService.deleteNotification(id);
+      const updatedNotifications = notifications.filter(n => n.id !== id);
+      setNotifications(updatedNotifications);
+      updateStats(updatedNotifications);
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+    }
+  };
+
+  // Load notifications on component mount
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  // Update filtered notifications when filters change
+  useEffect(() => {
+    filterNotifications();
+  }, [notifications, activeFilter, searchQuery]);
+
   const filters: { key: StatusKey; label: string }[] = [
-    { key: "all", label: "All Reports" },
-    { key: "completed", label: "Completed" },
-    { key: "maintenance", label: "Maintenance" },
-    { key: "complaint", label: "Complaint" },
-    { key: "pending", label: "Pending" },
+    { key: "all", label: "All Notifications" },
+    { key: "unread", label: "Unread" },
+    { key: "read", label: "Read" },
+    { key: "urgent", label: "Urgent" },
+    { key: "high", label: "High Priority" },
   ];
 
-    return (
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0 pl-64">
-            <TopNavbar />
-            
-                {/* Main Content Area */}
-                <main className="flex-1 p-6 overflow-auto">
+  const statusCounts: Record<StatusKey, number> = {
+    all: stats.total,
+    unread: stats.unread,
+    read: stats.read,
+    urgent: stats.urgent,
+    high: stats.high,
+  };
 
-                      {/* Quick Stats */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Total Projects</p>
-                              <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <AlertCircle className="w-4 h-4 text-blue-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Completed</p>
-                              <p className="text-2xl font-bold text-green-600">{statusCounts.completed}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">In Progress</p>
-                              <p className="text-2xl font-bold text-blue-600">{statusCounts['maintenance']}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Play className="w-4 h-4 text-blue-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Overdue</p>
-                              <p className="text-2xl font-bold text-red-600">3</p>
-                            </div>
-                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                              <Clock className="w-4 h-4 text-red-600" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Search and View Controls */}
-                      <div className="flex flex-col mb-6">
-                        {/* Search Bar */}
-                        <div className="flex-1">
-                            <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                placeholder="Search tasks..."
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            </div>
-                        </div>
-                      </div>
-
-                      {/* Status Filter Tabs */}
-                      <div className="flex gap-4 mb-6 border-b border-gray-200">
-                        {filters.map(filter => (
-                          <button
-                            key={filter.key}
-                            onClick={() => setActiveFilter(filter.key)}
-                            className={`pb-3 px-1 border-b-2 font-medium text-sm ${
-                              activeFilter === filter.key
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                          >
-                            {filter.label} ({statusCounts[filter.key]})
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Task List */}
-                      <div className="space-y-4">
-                        {filteredTasks.map(task => (
-                          <div
-                            key={task.id}
-                            className={`bg-white rounded-lg shadow-sm border-l-4 ${getPriorityColor(task.priority)} p-6 hover:shadow-md transition-shadow`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  {getStatusIcon(task.status)}
-                                  <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                    {task.status.replace('-', ' ')}
-                                  </span>
-                                </div>
-
-                                <p className="text-gray-600 mb-4">{task.description}</p>
-
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                                  <div className="flex items-center gap-1">
-                                    <User className="w-4 h-4" />
-                                    <span>{task.assignee}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="w-4 h-4" />
-                                    <span>{task.dueDate}</span>
-                                  </div>
-                                </div>
-
-                              </div>
-
-                              <div className="ml-6 text-right">
-                                <div className="text-sm text-gray-500 mb-2">Priority</div>
-                                <div className="flex flex-col items-end">
-                                  <span className={`px-3 py-2 rounded-lg text-sm font-medium border ${
-                                    task.priority === 'high' 
-                                      ? 'bg-red-50 text-red-800 border-red-200'
-                                      : task.priority === 'medium'
-                                      ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
-                                      : 'bg-green-50 text-green-800 border-green-200'
-                                  }`}>
-                                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                </main>
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 pl-64">
+        <TopNavbar 
+          notifications={notifications}
+          unreadCount={stats.unread}
+          onMarkAsRead={handleMarkAsRead}
+          onMarkAllAsRead={handleMarkAllAsRead}
+          onRefreshNotifications={loadNotifications}
+        />
+        
+        {/* Main Content Area */}
+        <main className="flex-1 p-6 overflow-auto">
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Notifications</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                </div>
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-blue-600" />
+                </div>
+              </div>
             </div>
-        </div>
-    );
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Unread</p>
+                  <p className="text-2xl font-bold text-red-600">{stats.unread}</p>
+                </div>
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <BellDot className="w-4 h-4 text-red-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Read</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.read}</p>
+                </div>
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Urgent</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.urgent}</p>
+                </div>
+                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-orange-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            {/* Search Bar */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search notifications..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              {stats.unread > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Mark All Read
+                </button>
+              )}
+              
+              {(user?.role === 'admin' || user?.role === 'staff') && (
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Notification
+                </button>
+              )}
+
+              <button
+                onClick={loadNotifications}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex gap-4 mb-6 border-b border-gray-200">
+            {filters.map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => setActiveFilter(filter.key)}
+                className={`pb-3 px-1 border-b-2 font-medium text-sm ${
+                  activeFilter === filter.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {filter.label} ({statusCounts[filter.key]})
+              </button>
+            ))}
+          </div>
+
+          {/* Loading State */}
+          {loading && (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600">Loading notifications...</span>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+              {error}
+              <button
+                onClick={loadNotifications}
+                className="ml-4 text-sm underline hover:no-underline"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* Notifications List */}
+          {!loading && !error && (
+            <div className="space-y-4">
+              {filteredNotifications.length === 0 ? (
+                <div className="text-center py-12">
+                  <BellDot className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {searchQuery.trim() ? 'No matching notifications' : 'No notifications found'}
+                  </h3>
+                  <p className="text-gray-500">
+                    {searchQuery.trim() 
+                      ? 'Try adjusting your search terms or filters'
+                      : 'You\'re all caught up! New notifications will appear here.'
+                    }
+                  </p>
+                </div>
+              ) : (
+                filteredNotifications.map(notification => (
+                  <NotificationCard
+                    key={notification.id}
+                    notification={notification}
+                    onMarkAsRead={handleMarkAsRead}
+                    onDelete={handleDeleteNotification}
+                  />
+                ))
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Create Notification Modal */}
+      <CreateNotificationModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={loadNotifications}
+      />
+    </div>
+  );
 };
 
 export default Notifications;
