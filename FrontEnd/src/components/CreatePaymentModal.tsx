@@ -92,11 +92,15 @@ const CreatePaymentModal: React.FC<CreatePaymentModalProps> = ({
     setError(null);
 
     try {
-      const paymentData = {
+      const paymentData: any = {
         ...formData,
         amount: parseFloat(formData.amount),
-        periodCovered: formData.paymentType === 'rent' ? formData.periodCovered : undefined
       };
+
+      // Only include periodCovered for rent payments
+      if (formData.paymentType === 'rent' && formData.periodCovered.startDate && formData.periodCovered.endDate) {
+        paymentData.periodCovered = formData.periodCovered;
+      }
 
       const response = await apiService.createPayment(paymentData);
 

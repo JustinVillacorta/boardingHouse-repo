@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation  } from 'react-router-dom';
 import { 
   Search,
@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from "../../contexts/AuthContext";
 import apiService from '../../services/apiService';
-import CreatePaymentModal from '../../components/CreatePaymentModal';
 
 interface Payment {
   _id: string;
@@ -47,11 +46,20 @@ interface Payment {
 
 interface Task {
   id: string;
-  roomnumber: string;
-  assignee: string;
-  status: 'Occupied' | 'More Info';
-  dueDate: string;
-  payment?: Payment;
+  roomNumber: string;
+  roomType: string;
+  currentTenant: string;
+  tenantId: string;
+  totalPayments: number;
+  pendingAmount: number;
+  overdueAmount: number;
+  lastPaymentDate: string;
+  room: {
+    _id: string;
+    roomNumber: string;
+    roomType: string;
+    monthlyRent: number;
+  };
 }
 
 interface PaymentHistory {
@@ -316,23 +324,16 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
   onClose, 
   roomNumber, 
   tenantName,
-  tenantId 
+  tenantId
 }) => {
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [currentPayments, setCurrentPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [isMarkAsPaidDialogOpen, setIsMarkAsPaidDialogOpen] = useState(false);
   const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
-  // Fetch payment data when modal opens
-  useEffect(() => {
-    if (isOpen && tenantId) {
-      fetchPaymentData();
-    }
-  }, [isOpen, tenantId]);
-
-  const fetchPaymentData = async () => {
+  const fetchPaymentData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -370,7 +371,14 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
+
+  // Fetch payment data when modal opens
+  useEffect(() => {
+    if (isOpen && tenantId) {
+      fetchPaymentData();
+    }
+  }, [isOpen, tenantId, fetchPaymentData]);
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -385,14 +393,53 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
     }
   };
 
-  const handleMarkAsPaid = (payment: any) => {
+  const handleMarkAsPaid = (payment: Payment) => {
     setSelectedPayment(payment);
     setIsMarkAsPaidDialogOpen(true);
   };
 
-  const handleDownload = (payment: any) => {
+  const handleHistoryDownload = (paymentHistory: PaymentHistory) => {
+    // Create a Payment object from PaymentHistory for download
+    const payment: Payment = {
+      _id: paymentHistory.id,
+      tenant: { _id: '', firstName: '', lastName: '', email: '', phoneNumber: '' },
+      room: { _id: '', roomNumber: '', roomType: '', monthlyRent: 0 },
+      amount: paymentHistory.amount,
+      paymentType: '',
+      paymentMethod: paymentHistory.paymentMethod,
+      status: paymentHistory.status === 'Paid' ? 'paid' : (paymentHistory.status === 'Overdue' ? 'overdue' : 'pending'),
+      dueDate: '',
+      paymentDate: paymentHistory.paidDate || undefined,
+      receiptNumber: '',
+      isLatePayment: false,
+      description: paymentHistory.description,
+      createdAt: '',
+      updatedAt: ''
+    };
     setSelectedPayment(payment);
     setIsDownloadDialogOpen(true);
+  };
+
+  const handleHistoryMarkAsPaid = (paymentHistory: PaymentHistory) => {
+    // Create a Payment object from PaymentHistory for marking as paid
+    const payment: Payment = {
+      _id: paymentHistory.id,
+      tenant: { _id: tenantId, firstName: '', lastName: '', email: '', phoneNumber: '' },
+      room: { _id: '', roomNumber: roomNumber, roomType: '', monthlyRent: 0 },
+      amount: paymentHistory.amount,
+      paymentType: '',
+      paymentMethod: paymentHistory.paymentMethod,
+      status: paymentHistory.status === 'Paid' ? 'paid' : (paymentHistory.status === 'Overdue' ? 'overdue' : 'pending'),
+      dueDate: paymentHistory.dueDate,
+      paymentDate: paymentHistory.paidDate || undefined,
+      receiptNumber: '',
+      isLatePayment: false,
+      description: paymentHistory.description,
+      createdAt: '',
+      updatedAt: ''
+    };
+    setSelectedPayment(payment);
+    setIsMarkAsPaidDialogOpen(true);
   };
 
   const confirmMarkAsPaid = async () => {
@@ -418,14 +465,14 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
 
   const confirmDownload = async () => {
     try {
-      if (selectedPayment && selectedPayment.id) {
-        const blob = await apiService.downloadPaymentReceipt(selectedPayment.id);
+      if (selectedPayment && selectedPayment._id) {
+        const blob = await apiService.downloadPaymentReceipt(selectedPayment._id);
         
         // Create download link
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `receipt-${selectedPayment.id}.pdf`;
+        link.download = `receipt-${selectedPayment._id}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -502,7 +549,7 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
 
           {/* Current Payments Section */}
           <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Current Payments</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Current Outstanding Payments</h3>
             {loading ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -545,7 +592,7 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                <p>No current payments found</p>
+                <p>No outstanding payments for this room.</p>
               </div>
             )}
           </div>
@@ -583,7 +630,7 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
                           <button 
                             className="p-1 hover:bg-gray-100 rounded transition-colors" 
                             title="Download"
-                            onClick={() => handleDownload(payment)}
+                            onClick={() => handleHistoryDownload(payment)}
                           >
                             <Download className="w-4 h-4 text-gray-600 hover:text-gray-800" />
                           </button>
@@ -619,7 +666,7 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
         <MarkAsPaidDialog
           isOpen={isMarkAsPaidDialogOpen}
           onClose={() => setIsMarkAsPaidDialogOpen(false)}
-          paymentDescription={selectedPayment.description}
+          paymentDescription={selectedPayment.description || `${selectedPayment.paymentType} Payment`}
           amount={selectedPayment.amount}
           dueDate={selectedPayment.dueDate}
           onConfirm={confirmMarkAsPaid}
@@ -631,7 +678,13 @@ const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({
         <DownloadReceiptDialog
           isOpen={isDownloadDialogOpen}
           onClose={() => setIsDownloadDialogOpen(false)}
-          paymentData={selectedPayment}
+          paymentData={{
+            description: selectedPayment.description || `${selectedPayment.paymentType} Payment`,
+            amount: selectedPayment.amount,
+            dueDate: selectedPayment.dueDate,
+            paidDate: selectedPayment.paymentDate || '',
+            paymentMethod: selectedPayment.paymentMethod
+          }}
           onDownload={confirmDownload}
         />
       )}
@@ -784,9 +837,9 @@ const Sidebar: React.FC = () => {
 
 const Payment: React.FC = () => {
   const [isPaymentHistoryModalOpen, setIsPaymentHistoryModalOpen] = useState(false);
-  const [isCreatePaymentModalOpen, setIsCreatePaymentModalOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<{ roomNumber: string; tenantName: string; tenantId: string } | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -800,45 +853,159 @@ const Payment: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // Get all payments with pending and overdue status
-      const response = await apiService.getPayments({
-        status: 'pending,overdue',
-        sort: 'dueDate',
-        order: 'asc',
-        limit: 50
-      });
+      // Fetch all rooms first
+      const roomsResponse = await apiService.getRooms({ limit: 100 });
+      
+      // Fetch all payments using pagination
+      let allPayments: Payment[] = [];
+      let currentPage = 1;
+      let hasMorePayments = true;
+      
+      while (hasMorePayments) {
+        const paymentsResponse = await apiService.getPayments({
+          sort: 'dueDate',
+          order: 'asc',
+          limit: 100, // Max allowed by backend
+          page: currentPage
+        });
+        
+        if (paymentsResponse.success) {
+          const pagePayments = paymentsResponse.data.payments || [];
+          allPayments = [...allPayments, ...pagePayments];
+          
+          // Check if there are more pages
+          const pagination = paymentsResponse.data.pagination;
+          hasMorePayments = pagination && currentPage < pagination.pages;
+          currentPage++;
+        } else {
+          hasMorePayments = false;
+        }
+      }
 
-      if (response.success) {
-        setPayments(response.data.payments || []);
+      if (roomsResponse.success) {
+        const roomsData = roomsResponse.data.rooms || [];
+        console.log('Room data received:', roomsData); // Debug log
+        console.log('Sample room structure:', roomsData[0]); // Debug first room structure
+        setPayments(allPayments);
+        
+        // Group payments by room
+        const roomGroups: { [key: string]: Payment[] } = {};
+        allPayments.forEach((payment: Payment) => {
+          const roomKey = payment.room._id;
+          if (!roomGroups[roomKey]) {
+            roomGroups[roomKey] = [];
+          }
+          roomGroups[roomKey].push(payment);
+        });
+
+        // Create tasks for ALL rooms, whether they have payments or not
+        const tasksData = roomsData
+          .filter((room: any) => {
+            // Show rooms that have tenants assigned
+            return room.tenant && room.tenant.id;
+          })
+          .map((room: any) => {
+            const roomPayments = roomGroups[room.id] || [];
+            console.log(`Processing room ${room.roomnumber}:`, room); // Debug each room
+            
+            // Calculate totals
+            const pendingPayments = roomPayments.filter(p => p.status === 'pending');
+            const overduePayments = roomPayments.filter(p => p.status === 'overdue');
+            const paidPayments = roomPayments.filter(p => p.status === 'paid');
+            
+            const pendingAmount = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
+            const overdueAmount = overduePayments.reduce((sum, p) => sum + p.amount, 0);
+            
+            // Get last payment date
+            const lastPaidPayment = paidPayments
+              .filter(p => p.paymentDate)
+              .sort((a, b) => new Date(b.paymentDate!).getTime() - new Date(a.paymentDate!).getTime())[0];
+            
+            // Determine tenant name and ID more accurately
+            let tenantName = 'Vacant';
+            let tenantId = '';
+            
+            // Check if tenant data exists in the room object
+            if (room.tenant && room.tenant.id) {
+              // Backend returns tenant.name and tenant.id from aggregation
+              tenantName = room.tenant.name;
+              tenantId = room.tenant.id;
+            } else if (room.assignee && room.assignee !== 'Vacant') {
+              // Fallback to assignee field if available
+              tenantName = room.assignee;
+              // Try to get tenant ID from payments if available
+              if (roomPayments.length > 0) {
+                tenantId = roomPayments[0].tenant._id;
+              }
+            }
+            
+            console.log(`Room ${room.roomnumber} - Tenant: ${tenantName}, ID: ${tenantId}`); // Debug tenant mapping
+            
+            return {
+              id: room.id,
+              roomNumber: room.roomnumber,
+              roomType: room.roomtype,
+              currentTenant: tenantName,
+              tenantId: tenantId,
+              totalPayments: roomPayments.length,
+              pendingAmount,
+              overdueAmount,
+              lastPaymentDate: lastPaidPayment ? new Date(lastPaidPayment.paymentDate!).toLocaleDateString() : 'No payments yet',
+              room: {
+                _id: room.id,
+                roomNumber: room.roomnumber,
+                roomType: room.roomtype.toLowerCase(),
+                monthlyRent: parseFloat(room.price)
+              }
+            };
+          });
+        
+        setTasks(tasksData);
       } else {
-        setError('Failed to fetch payments');
+        setError('Failed to fetch rooms');
+        setTasks([]);
       }
     } catch (error) {
       console.error('Error fetching payments:', error);
       setError('Failed to fetch payments. Please try again.');
+      setTasks([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Convert payments to tasks for display
-  const tasks: Task[] = payments.map(payment => ({
-    id: payment._id,
-    roomnumber: payment.room?.roomNumber || 'N/A',
-    assignee: payment.tenant ? `${payment.tenant.firstName} ${payment.tenant.lastName}` : 'Unknown',
-    status: payment.status === 'paid' ? 'Occupied' : 'More Info',
-    dueDate: new Date(payment.dueDate).toLocaleDateString(),
-    payment
-  }));
-
   const handleMoreInfoClick = (roomNumber: string, tenantName: string, tenantId: string) => {
-    setSelectedRoom({ roomNumber, tenantName, tenantId });
-    setIsPaymentHistoryModalOpen(true);
+    // Only open modal if there's a tenant assigned to the room
+    if (tenantId && tenantName !== 'Vacant' && tenantName !== 'No tenant assigned') {
+      setSelectedRoom({ roomNumber, tenantName, tenantId });
+      setIsPaymentHistoryModalOpen(true);
+    } else {
+      alert('This room does not have a tenant assigned yet.');
+    }
   };
 
   const handleCloseModal = () => {
     setIsPaymentHistoryModalOpen(false);
     setSelectedRoom(null);
+  };
+
+  const handleDownloadReceipt = async (paymentId: string) => {
+    try {
+      const blob = await apiService.downloadPaymentReceipt(paymentId);
+      
+      // Create a temporary URL for the blob and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payment-receipt-${paymentId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      alert('Failed to download receipt. Please try again.');
+    }
   };
 
   const handleMarkAsPaid = async (payment: Payment) => {
@@ -908,18 +1075,12 @@ const Payment: React.FC = () => {
 
             {/* Projects Content */}
             <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
-              {/* Header with Create Payment Button */}
-              <div className="flex items-center justify-between mb-6">
+              {/* Header */}
+              <div className="mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800">Payment Management</h2>
                   <p className="text-gray-600">Manage tenant payments and dues</p>
                 </div>
-                <button
-                  onClick={() => setIsCreatePaymentModalOpen(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Create Payment
-                </button>
               </div>
 
               <div className="flex items-center justify-between mb-6 w-full">
@@ -927,10 +1088,12 @@ const Payment: React.FC = () => {
                 <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6">
                   
                   {/* ✅ Header Row */}
-                  <div className="grid grid-cols-4 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
-                    <span>Name</span>
+                  <div className="grid grid-cols-6 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
                     <span>Room Number</span>
-                    <span>Due Date</span>
+                    <span>Current Tenant</span>
+                    <span>Pending Amount</span>
+                    <span>Overdue Amount</span>
+                    <span>Last Payment</span>
                     <span>Actions</span>
                   </div>
 
@@ -940,65 +1103,51 @@ const Payment: React.FC = () => {
                       tasks.map((task) => (
                         <div
                           key={task.id}
-                          className="grid grid-cols-4 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
+                          className="grid grid-cols-6 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
                         >
-                          {/* Name */}
-                          <span className="text-center">{task.assignee}</span>
-
                           {/* Room Number */}
-                          <span className="text-center">{task.roomnumber}</span>
+                          <span className="text-center">Room {task.roomNumber}</span>
+
+                          {/* Current Tenant */}
+                          <span className="text-center">{task.currentTenant}</span>
                           
-                          {/* Due Date */}
-                          <span className="text-center">{task.dueDate}</span>
+                          {/* Pending Amount */}
+                          <span className="text-center">
+                            {task.pendingAmount > 0 ? (
+                              <span className="text-yellow-600 font-medium">₱{task.pendingAmount.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-gray-400">₱0</span>
+                            )}
+                          </span>
+
+                          {/* Overdue Amount */}
+                          <span className="text-center">
+                            {task.overdueAmount > 0 ? (
+                              <span className="text-red-600 font-medium">₱{task.overdueAmount.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-gray-400">₱0</span>
+                            )}
+                          </span>
+
+                          {/* Last Payment */}
+                          <span className="text-center text-sm">{task.lastPaymentDate}</span>
 
                           {/* Actions */}
                           <span className="text-center">
-                            {task.payment?.status === 'pending' ? (
-                              <div className="flex justify-center space-x-2">
-                                <button 
-                                  className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                                  onClick={() => task.payment && handleMarkAsPaid(task.payment)}
-                                >
-                                  Mark as Paid
-                                </button>
-                                <button 
-                                  className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                                  onClick={() => handleMoreInfoClick(task.roomnumber, task.assignee, task.payment?.tenant._id || '')}
-                                >
-                                  More Info
-                                </button>
-                              </div>
-                            ) : task.payment?.status === 'overdue' ? (
-                              <div className="flex justify-center space-x-2">
-                                <button 
-                                  className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-                                  onClick={() => task.payment && handleMarkAsPaid(task.payment)}
-                                >
-                                  Pay Overdue
-                                </button>
-                                <button 
-                                  className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                                  onClick={() => handleMoreInfoClick(task.roomnumber, task.assignee, task.payment?.tenant._id || '')}
-                                >
-                                  More Info
-                                </button>
-                              </div>
-                            ) : (
-                              <button 
-                                className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                                onClick={() => handleMoreInfoClick(task.roomnumber, task.assignee, task.payment?.tenant._id || '')}
-                              >
-                                More Info
-                              </button>
-                            )}
+                            <button 
+                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                              onClick={() => handleMoreInfoClick(task.roomNumber, task.currentTenant, task.tenantId)}
+                            >
+                              View Payments
+                            </button>
                           </span>
 
                         </div>
                       ))
                     ) : (
                       <div className="text-center py-8 text-gray-500">
-                        <p className="text-lg mb-2">No pending payments found</p>
-                        <p className="text-sm">All payments are up to date or you can create a new payment.</p>
+                        <p className="text-lg mb-2">No rooms found</p>
+                        <p className="text-sm">No rooms with payment records available.</p>
                       </div>
                     )}
                   </div>
@@ -1020,12 +1169,6 @@ const Payment: React.FC = () => {
           />
         )}
 
-        {/* Create Payment Modal */}
-        <CreatePaymentModal
-          isOpen={isCreatePaymentModalOpen}
-          onClose={() => setIsCreatePaymentModalOpen(false)}
-          onPaymentCreated={fetchPayments}
-        />
       </div>
     );
 };

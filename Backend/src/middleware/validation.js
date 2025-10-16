@@ -729,8 +729,19 @@ const validatePaymentQuery = [
   
   query('status')
     .optional()
-    .isIn(['pending', 'completed', 'failed', 'refunded', 'partial'])
-    .withMessage('Status must be pending, completed, failed, refunded, or partial'),
+    .custom((value) => {
+      // Handle single status or comma-separated status values
+      if (typeof value === 'string') {
+        const statusArray = value.split(',').map(s => s.trim());
+        const validStatuses = ['pending', 'paid', 'overdue'];
+        const invalidStatuses = statusArray.filter(status => !validStatuses.includes(status));
+        if (invalidStatuses.length > 0) {
+          throw new Error(`Invalid status values: ${invalidStatuses.join(', ')}. Status must be pending, paid, or overdue`);
+        }
+        return true;
+      }
+      return true;
+    }),
   
   query('paymentType')
     .optional()

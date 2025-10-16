@@ -1,6 +1,6 @@
 const paymentService = require('../services/paymentService');
 const { validationResult } = require('express-validator');
-const { sendResponse, sendError } = require('../utils/response');
+const { sendResponse, sendError, sendSuccess, sendCreated } = require('../utils/response');
 const fs = require('fs');
 
 class PaymentController {
@@ -17,7 +17,7 @@ class PaymentController {
 
       const payment = await paymentService.createPayment(req.body, req.user.id);
       
-      sendResponse(res, 'Payment created successfully', payment, 201);
+      sendCreated(res, 'Payment created successfully', payment);
     } catch (error) {
       console.error('Create payment error:', error);
       sendError(res, error.message, 400);
@@ -98,7 +98,7 @@ class PaymentController {
         room: payment.room
       }));
       
-      sendResponse(res, 'Payments retrieved successfully', {
+      sendSuccess(res, 'Payments retrieved successfully', {
         payments: formattedPayments,
         pagination: result.pagination,
         total: result.total
@@ -118,7 +118,7 @@ class PaymentController {
       const { id } = req.params;
       const payment = await paymentService.getPaymentById(id);
       
-      sendResponse(res, 'Payment retrieved successfully', { payment });
+      sendSuccess(res, 'Payment retrieved successfully', { payment });
     } catch (error) {
       console.error('Get payment by ID error:', error);
       const statusCode = error.message.includes('not found') ? 404 : 500;
@@ -140,7 +140,7 @@ class PaymentController {
       const { id } = req.params;
       const updatedPayment = await paymentService.updatePayment(id, req.body, req.user.id);
       
-      sendResponse(res, 'Payment updated successfully', { payment: updatedPayment });
+      sendSuccess(res, 'Payment updated successfully', { payment: updatedPayment });
     } catch (error) {
       console.error('Update payment error:', error);
       const statusCode = error.message.includes('not found') ? 404 : 400;
@@ -157,7 +157,7 @@ class PaymentController {
       const { id } = req.params;
       await paymentService.deletePayment(id);
       
-      sendResponse(res, 'Payment deleted successfully');
+      sendSuccess(res, 'Payment deleted successfully');
     } catch (error) {
       console.error('Delete payment error:', error);
       const statusCode = error.message.includes('not found') ? 404 : 400;
@@ -192,7 +192,7 @@ class PaymentController {
 
       const result = await paymentService.getPaymentsByTenant(tenantId, options);
       
-      sendResponse(res, 'Tenant payments retrieved successfully', result);
+      sendSuccess(res, 'Tenant payments retrieved successfully', result);
     } catch (error) {
       console.error('Get payments by tenant error:', error);
       const statusCode = error.message.includes('not found') ? 404 : 500;
@@ -227,7 +227,7 @@ class PaymentController {
 
       const result = await paymentService.getOverduePayments(options);
       
-      sendResponse(res, 'Overdue payments retrieved successfully', result);
+      sendSuccess(res, 'Overdue payments retrieved successfully', result);
     } catch (error) {
       console.error('Get overdue payments error:', error);
       sendError(res, error.message, 500);
@@ -282,7 +282,7 @@ class PaymentController {
       
       const updatedPayment = await paymentService.processRefund(id, refundData, req.user.id);
       
-      sendResponse(res, 'Refund processed successfully', { payment: updatedPayment });
+      sendSuccess(res, 'Refund processed successfully', { payment: updatedPayment });
     } catch (error) {
       console.error('Process refund error:', error);
       const statusCode = error.message.includes('not found') ? 404 : 400;
@@ -305,7 +305,7 @@ class PaymentController {
       
       const result = await paymentService.applyLateFees(parseFloat(lateFeeAmount));
       
-      sendResponse(res, 'Late fees applied successfully', result);
+      sendSuccess(res, 'Late fees applied successfully', result);
     } catch (error) {
       console.error('Apply late fees error:', error);
       sendError(res, error.message, 500);
@@ -348,7 +348,7 @@ class PaymentController {
 
       const statistics = await paymentService.getPaymentStatistics(filters);
       
-      sendResponse(res, 'Payment statistics retrieved successfully', { statistics });
+      sendSuccess(res, 'Payment statistics retrieved successfully', { statistics });
     } catch (error) {
       console.error('Get payment statistics error:', error);
       sendError(res, error.message, 500);
@@ -388,7 +388,7 @@ class PaymentController {
 
       const history = await paymentService.getPaymentHistory(startDate, endDate, options);
       
-      sendResponse(res, 'Payment history retrieved successfully', history);
+      sendSuccess(res, 'Payment history retrieved successfully', history);
     } catch (error) {
       console.error('Get payment history error:', error);
       sendError(res, error.message, 500);
@@ -416,7 +416,7 @@ class PaymentController {
 
       const result = await paymentService.getPendingPaymentsByTenant(tenant._id);
       
-      sendResponse(res, 'Pending payments retrieved successfully', result);
+      sendSuccess(res, 'Pending payments retrieved successfully', result);
     } catch (error) {
       console.error('Get my pending payments error:', error);
       sendError(res, error.message, 500);
@@ -432,7 +432,7 @@ class PaymentController {
       const { id } = req.params;
       const completedPayment = await paymentService.markPaymentCompleted(id, req.user.id);
       
-      sendResponse(res, 'Payment marked as completed successfully', { payment: completedPayment });
+      sendSuccess(res, 'Payment marked as completed successfully', { payment: completedPayment });
     } catch (error) {
       console.error('Mark payment completed error:', error);
       const statusCode = error.message.includes('not found') ? 404 : 400;
@@ -485,7 +485,7 @@ class PaymentController {
 
       const result = await paymentService.searchPayments(searchQuery, filters, options);
       
-      sendResponse(res, 'Payment search completed successfully', result);
+      sendSuccess(res, 'Payment search completed successfully', result);
     } catch (error) {
       console.error('Search payments error:', error);
       sendError(res, error.message, 500);

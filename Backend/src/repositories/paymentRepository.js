@@ -421,7 +421,13 @@ class PaymentRecordRepository {
     }
 
     if (filters.status) {
-      query.status = filters.status;
+      // Handle comma-separated status values
+      if (typeof filters.status === 'string' && filters.status.includes(',')) {
+        const statusArray = filters.status.split(',').map(s => s.trim());
+        query.status = { $in: statusArray };
+      } else {
+        query.status = filters.status;
+      }
     }
 
     if (filters.paymentType) {

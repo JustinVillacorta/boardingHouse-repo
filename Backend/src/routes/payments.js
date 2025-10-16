@@ -16,7 +16,7 @@ const {
 // Create a new payment (admin/staff only)
 router.post('/',
   authenticate,
-  authorize(['admin', 'staff']),
+  authorize('admin', 'staff'),
   validatePaymentCreate,
   paymentController.createPayment
 );
@@ -24,7 +24,7 @@ router.post('/',
 // Get all payments with filters (admin/staff only)
 router.get('/',
   authenticate,
-  authorize(['admin', 'staff']),
+  authorize('admin', 'staff'),
   validatePaymentQuery,
   paymentController.getAllPayments
 );
@@ -32,7 +32,7 @@ router.get('/',
 // Get payment statistics (admin/staff only)
 router.get('/statistics',
   authenticate,
-  authorize(['admin', 'staff']),
+  authorize('admin', 'staff'),
   validatePaymentStatisticsQuery,
   paymentController.getPaymentStatistics
 );
@@ -40,7 +40,7 @@ router.get('/statistics',
 // Get payment history (admin/staff only)
 router.get('/history',
   authenticate,
-  authorize(['admin', 'staff']),
+  authorize('admin', 'staff'),
   validatePaymentHistoryQuery,
   paymentController.getPaymentHistory
 );
@@ -48,7 +48,7 @@ router.get('/history',
 // Search payments (admin/staff only)
 router.get('/search',
   authenticate,
-  authorize(['admin', 'staff']),
+  authorize('admin', 'staff'),
   validatePaymentSearch,
   paymentController.searchPayments
 );
@@ -56,7 +56,7 @@ router.get('/search',
 // Get overdue payments (admin/staff only)
 router.get('/overdue',
   authenticate,
-  authorize(['admin', 'staff']),
+  authorize('admin', 'staff'),
   validatePaymentQuery,
   paymentController.getOverduePayments
 );
@@ -64,14 +64,14 @@ router.get('/overdue',
 // Get current tenant's pending payments (tenant only)
 router.get('/pending/me',
   authenticate,
-  authorize(['tenant']),
+  authorize('tenant'),
   paymentController.getMyPendingPayments
 );
 
 // Get payments by tenant ID (admin/staff only)
 router.get('/tenant/:tenantId',
   authenticate,
-  authorize(['admin', 'staff']),
+  authorize('admin', 'staff'),
   validatePaymentQuery,
   paymentController.getPaymentsByTenant
 );
@@ -79,7 +79,7 @@ router.get('/tenant/:tenantId',
 // Apply late fees to overdue payments (admin only)
 router.post('/apply-late-fees',
   authenticate,
-  authorize(['admin']),
+  authorize('admin'),
   validateLateFeeApplication,
   paymentController.applyLateFees
 );
@@ -87,14 +87,14 @@ router.post('/apply-late-fees',
 // Get specific payment by ID
 router.get('/:id',
   authenticate,
-  authorize(['admin', 'staff', 'tenant']),
+  authorize('admin', 'staff', 'tenant'),
   paymentController.getPaymentById
 );
 
 // Update payment (admin/staff only)
 router.put('/:id',
   authenticate,
-  authorize(['admin', 'staff']),
+  authorize('admin', 'staff'),
   validatePaymentUpdate,
   paymentController.updatePayment
 );
@@ -102,21 +102,21 @@ router.put('/:id',
 // Delete payment (admin only)
 router.delete('/:id',
   authenticate,
-  authorize(['admin']),
+  authorize('admin'),
   paymentController.deletePayment
 );
 
 // Download payment receipt (all authenticated users)
 router.get('/:id/receipt',
   authenticate,
-  authorize(['admin', 'staff', 'tenant']),
+  authorize('admin', 'staff', 'tenant'),
   paymentController.downloadReceipt
 );
 
 // Process refund (admin only)
 router.post('/:id/refund',
   authenticate,
-  authorize(['admin']),
+  authorize('admin'),
   validatePaymentRefund,
   paymentController.processRefund
 );
@@ -124,7 +124,7 @@ router.post('/:id/refund',
 // Mark payment as completed (admin/staff only)
 router.put('/:id/complete',
   authenticate,
-  authorize(['admin', 'staff']),
+  authorize('admin', 'staff'),
   paymentController.markPaymentCompleted
 );
 

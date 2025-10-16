@@ -270,7 +270,8 @@ class ApiService {
   // Payments methods (for frontend payment management page)
   async getPayments(params: PaginationParams = {}): Promise<ApiResponse> {
     const queryString = new URLSearchParams(params).toString();
-    return this.request(`/payments${queryString ? '?' + queryString : ''}`);
+    const endpoint = `/payments${queryString ? '?' + queryString : ''}`;
+    return this.request(endpoint);
   }
 
   async getPaymentById(id: string): Promise<ApiResponse> {
