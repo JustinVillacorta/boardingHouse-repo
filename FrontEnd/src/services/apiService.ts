@@ -69,17 +69,18 @@ interface PaymentData {
   tenant: string;
   room: string;
   amount: number;
-  paymentType: string;
-  paymentMethod: string;
+  paymentType: 'rent' | 'deposit' | 'utility' | 'maintenance' | 'penalty' | 'other';
+  paymentMethod: 'cash' | 'bank_transfer' | 'check' | 'credit_card' | 'debit_card' | 'digital_wallet' | 'money_order';
+  status: 'pending' | 'paid' | 'overdue';
   dueDate: string;
-  status: string;
   paymentDate?: string;
-  periodCovered: {
+  periodCovered?: {
     startDate: string;
     endDate: string;
   };
   description?: string;
-  transactionId?: string;
+  transactionReference?: string;
+  notes?: string;
 }
 
 interface ReportData {
@@ -283,10 +284,70 @@ class ApiService {
     });
   }
 
-  async markPaymentAsPaid(id: string, paymentData: Partial<PaymentData>): Promise<ApiResponse> {
-    return this.request(`/payments/${id}/pay`, {
-      method: 'POST',
+  async updatePayment(id: string, paymentData: Partial<PaymentData>): Promise<ApiResponse> {
+    return this.request(`/payments/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(paymentData),
+    });
+  }
+
+  async markPaymentCompleted(id: string): Promise<ApiResponse> {
+    return this.request(`/payments/${id}/complete`, {
+      method: 'PUT',
+    });
+  }
+
+  async getPaymentsByTenant(tenantId: string, params: PaginationParams = {}): Promise<ApiResponse> {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/payments/tenant/${tenantId}${queryString ? '?' + queryString : ''}`);
+  }
+
+  async getOverduePayments(params: PaginationParams = {}): Promise<ApiResponse> {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/payments/overdue${queryString ? '?' + queryString : ''}`);
+  }
+
+  async getMyPendingPayments(): Promise<ApiResponse> {
+    return this.request('/payments/pending/me');
+  }
+
+  async downloadPaymentReceipt(id: string): Promise<Blob> {
+    const token = this.getAuthToken();
+    const response = await fetch(`${this.baseURL}/payments/${id}/receipt`, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to download receipt: ${response.statusText}`);
+    }
+
+    return response.blob();
+  }
+
+  async getPaymentStatistics(params: any = {}): Promise<ApiResponse> {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/payments/statistics${queryString ? '?' + queryString : ''}`);
+  }
+
+  async getPaymentHistory(startDate: string, endDate: string, params: any = {}): Promise<ApiResponse> {
+    const allParams = { startDate, endDate, ...params };
+    const queryString = new URLSearchParams(allParams).toString();
+    return this.request(`/payments/history?${queryString}`);
+  }
+
+  async searchPayments(query: string, params: any = {}): Promise<ApiResponse> {
+    const allParams = { query, ...params };
+    const queryString = new URLSearchParams(allParams).toString();
+    return this.request(`/payments/search?${queryString}`);
+  }
+
+  async applyLateFees(lateFeeAmount: number): Promise<ApiResponse> {
+    return this.request('/payments/apply-late-fees', {
+      method: 'POST',
+      body: JSON.stringify({ lateFeeAmount }),
     });
   }
 

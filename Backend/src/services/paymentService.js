@@ -1,14 +1,16 @@
-const paymentRecordRepository = require('../repositories/paymentRepository');
+const paymentRepository = require('../repositories/paymentRepository');
 const tenantRepository = require('../repositories/tenantRepository');
 const roomRepository = require('../repositories/roomRepository');
 const PDFDocument = require('pdfkit');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
-class PaymentRecordService {
+class PaymentService {
   /**
-   * Create a new payment record
+   * Create a new payment
    */
-  async createPaymentRecord(paymentData, createdBy) {
+  async createPayment(paymentData, createdBy) {
     try {
       // Validate tenant exists and is active
       const tenant = await tenantRepository.findById(paymentData.tenant);
@@ -17,7 +19,7 @@ class PaymentRecordService {
       }
 
       if (tenant.tenantStatus !== 'active') {
-        throw new Error('Cannot create payment record for inactive tenant');
+        throw new Error('Cannot create payment for inactive tenant');
       }
 
       // Validate room exists and tenant is assigned to the room
@@ -30,92 +32,80 @@ class PaymentRecordService {
         throw new Error('Tenant is not assigned to this room');
       }
 
-      // Generate unique receipt number
-      const receiptNumber = this.generateReceiptNumber();
-
-      // Calculate if payment is late
-      const dueDate = new Date(paymentData.dueDate);
-      const paymentDate = new Date(paymentData.paymentDate);
-      const isLatePayment = paymentDate > dueDate;
-      
-      // Calculate late fee if applicable
-      let lateFee = { applied: false, amount: 0, reason: '' };
-      if (isLatePayment && paymentData.lateFee && paymentData.lateFee.amount > 0) {
-        const daysLate = Math.ceil((paymentDate - dueDate) / (1000 * 60 * 60 * 24));
-        lateFee = {
-          applied: true,
-          amount: paymentData.lateFee.amount,
-          reason: `Late payment fee - ${daysLate} days overdue`,
-          appliedDate: new Date()
-        };
+      // Generate unique receipt number if payment is being marked as paid
+      let receiptNumber = null;
+      if (paymentData.status === 'paid') {
+        receiptNumber = this.generateReceiptNumber();
       }
 
-      const paymentRecord = {
+      // Calculate if payment is late if payment date is provided
+      let isLatePayment = false;
+      if (paymentData.paymentDate && paymentData.dueDate) {
+        const dueDate = new Date(paymentData.dueDate);
+        const paymentDate = new Date(paymentData.paymentDate);
+        isLatePayment = paymentDate > dueDate;
+      }
+
+      const payment = {
         ...paymentData,
         receiptNumber,
         recordedBy: createdBy,
         isLatePayment,
-        lateFee,
         createdAt: new Date(),
         updatedAt: new Date()
       };
 
-      const newPaymentRecord = await paymentRecordRepository.create(paymentRecord);
+      const newPayment = await paymentRepository.create(payment);
       
-      // Populate the created record
-      return await paymentRecordRepository.findById(newPaymentRecord._id);
+      // Populate the created payment
+      return await paymentRepository.findById(newPayment._id);
     } catch (error) {
-      throw new Error(`Failed to create payment record: ${error.message}`);
+      throw new Error(`Failed to create payment: ${error.message}`);
     }
   }
 
   /**
-   * Get all payment records with filtering and pagination
+   * Get all payments with filtering and pagination
    */
-  async getAllPaymentRecords(filters, options, userRole) {
+  async getAllPayments(filters, options) {
     try {
-      const result = await paymentRecordRepository.findAll(filters, options);
+      const result = await paymentRepository.findAll(filters, options);
       
       return {
-        success: true,
-        data: result.payments,
+        payments: result.payments,
         pagination: result.pagination,
-        message: `Retrieved ${result.payments.length} payment records`
+        total: result.pagination.totalCount
       };
     } catch (error) {
-      throw new Error(`Failed to retrieve payment records: ${error.message}`);
+      throw new Error(`Failed to retrieve payments: ${error.message}`);
     }
   }
 
   /**
-   * Get payment record by ID
+   * Get payment by ID
    */
-  async getPaymentRecordById(id) {
+  async getPaymentById(id) {
     try {
-      const paymentRecord = await paymentRecordRepository.findById(id);
+      const payment = await paymentRepository.findById(id);
       
-      if (!paymentRecord) {
-        throw new Error('Payment record not found');
+      if (!payment) {
+        throw new Error('Payment not found');
       }
 
-      return {
-        success: true,
-        data: paymentRecord,
-        message: 'Payment record retrieved successfully'
-      };
+      return payment;
     } catch (error) {
-      throw new Error(`Failed to retrieve payment record: ${error.message}`);
+      throw new Error(`Failed to retrieve payment: ${error.message}`);
     }
   }
 
   /**
-   * Update payment record
+   * Update payment
    */
-  async updatePaymentRecord(id, updateData, updatedBy) {
+  async updatePayment(id, updateData, updatedBy) {
     try {
-      const existingRecord = await paymentRecordRepository.findById(id);
-      if (!existingRecord) {
-        throw new Error('Payment record not found');
+      const existingPayment = await paymentRepository.findById(id);
+      if (!existingPayment) {
+        throw new Error('Payment not found');
       }
 
       // Validate that tenant exists if being updated
@@ -136,117 +126,240 @@ class PaymentRecordService {
 
       // Recalculate late payment status if dates are being updated
       if (updateData.paymentDate || updateData.dueDate) {
-        const paymentDate = new Date(updateData.paymentDate || existingRecord.paymentDate);
-        const dueDate = new Date(updateData.dueDate || existingRecord.dueDate);
-        updateData.isLatePayment = paymentDate > dueDate;
+        const paymentDate = new Date(updateData.paymentDate || existingPayment.paymentDate);
+        const dueDate = new Date(updateData.dueDate || existingPayment.dueDate);
+        if (paymentDate && dueDate) {
+          updateData.isLatePayment = paymentDate > dueDate;
+        }
+      }
+
+      // Generate receipt number if marking as paid and doesn't have one
+      if (updateData.status === 'paid' && !existingPayment.receiptNumber) {
+        updateData.receiptNumber = this.generateReceiptNumber();
       }
 
       updateData.updatedAt = new Date();
       
-      const updatedRecord = await paymentRecordRepository.update(id, updateData);
+      const updatedPayment = await paymentRepository.update(id, updateData);
 
-      return {
-        success: true,
-        data: updatedRecord,
-        message: 'Payment record updated successfully'
-      };
+      return updatedPayment;
     } catch (error) {
-      throw new Error(`Failed to update payment record: ${error.message}`);
+      throw new Error(`Failed to update payment: ${error.message}`);
     }
   }
 
   /**
-   * Delete payment record
+   * Delete payment
    */
-  async deletePaymentRecord(id) {
+  async deletePayment(id) {
     try {
-      const paymentRecord = await paymentRecordRepository.findById(id);
-      if (!paymentRecord) {
-        throw new Error('Payment record not found');
+      const payment = await paymentRepository.findById(id);
+      if (!payment) {
+        throw new Error('Payment not found');
       }
 
-      await paymentRecordRepository.delete(id);
+      await paymentRepository.delete(id);
 
-      return {
-        success: true,
-        message: 'Payment record deleted successfully'
-      };
+      return true;
     } catch (error) {
-      throw new Error(`Failed to delete payment record: ${error.message}`);
+      throw new Error(`Failed to delete payment: ${error.message}`);
     }
   }
 
   /**
-   * Get tenant payment records
+   * Get payments by tenant
    */
-  async getTenantPaymentRecords(tenantId, options) {
+  async getPaymentsByTenant(tenantId, options) {
     try {
       const tenant = await tenantRepository.findById(tenantId);
       if (!tenant) {
         throw new Error('Tenant not found');
       }
 
-      const result = await paymentRecordRepository.findByTenant(tenantId, options);
+      const result = await paymentRepository.findByTenant(tenantId, options);
 
       return {
-        success: true,
-        data: result.payments,
+        payments: result.payments,
         pagination: result.pagination,
         tenant: {
           id: tenant._id,
           name: `${tenant.firstName} ${tenant.lastName}`,
           roomNumber: tenant.roomNumber
-        },
-        message: `Retrieved payment records for ${tenant.firstName} ${tenant.lastName}`
+        }
       };
     } catch (error) {
-      throw new Error(`Failed to retrieve tenant payment records: ${error.message}`);
+      throw new Error(`Failed to retrieve tenant payments: ${error.message}`);
     }
   }
 
   /**
-   * Get room payment records
+   * Get overdue payments
    */
-  async getRoomPaymentRecords(roomId, options) {
+  async getOverduePayments(options) {
     try {
-      const room = await roomRepository.findById(roomId);
-      if (!room) {
-        throw new Error('Room not found');
+      // First, update any pending payments that are now overdue
+      await this.updateOverduePayments();
+
+      const filters = { status: 'overdue' };
+      if (options.tenantId) filters.tenantId = options.tenantId;
+      if (options.roomId) filters.roomId = options.roomId;
+
+      const result = await paymentRepository.findAll(filters, {
+        page: options.page || 1,
+        limit: options.limit || 10,
+        sort: { dueDate: 1 }
+      });
+
+      return {
+        payments: result.payments,
+        pagination: result.pagination
+      };
+    } catch (error) {
+      throw new Error(`Failed to retrieve overdue payments: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get pending payments for a tenant
+   */
+  async getPendingPaymentsByTenant(tenantId) {
+    try {
+      const tenant = await tenantRepository.findById(tenantId);
+      if (!tenant) {
+        throw new Error('Tenant not found');
       }
 
-      const result = await paymentRecordRepository.findByRoom(roomId, options);
+      const result = await paymentRepository.findAll(
+        { tenantId, status: 'pending' },
+        { sort: { dueDate: 1 } }
+      );
 
       return {
-        success: true,
-        data: result.payments,
-        pagination: result.pagination,
-        room: {
-          id: room._id,
-          roomNumber: room.roomNumber,
-          roomType: room.roomType
-        },
-        message: `Retrieved payment records for room ${room.roomNumber}`
+        payments: result.payments,
+        tenant: {
+          id: tenant._id,
+          name: `${tenant.firstName} ${tenant.lastName}`
+        }
       };
     } catch (error) {
-      throw new Error(`Failed to retrieve room payment records: ${error.message}`);
+      throw new Error(`Failed to retrieve pending payments: ${error.message}`);
     }
   }
 
   /**
-   * Get late payment records
+   * Mark payment as completed
    */
-  async getLatePaymentRecords(options) {
+  async markPaymentCompleted(id, completedBy) {
     try {
-      const result = await paymentRecordRepository.findLatePayments(options);
+      const payment = await paymentRepository.findById(id);
+      if (!payment) {
+        throw new Error('Payment not found');
+      }
+
+      if (payment.status === 'paid') {
+        throw new Error('Payment is already marked as paid');
+      }
+
+      const updateData = {
+        status: 'paid',
+        paymentDate: new Date(),
+        recordedBy: completedBy,
+        updatedAt: new Date()
+      };
+
+      // Check if payment is late
+      if (new Date() > new Date(payment.dueDate)) {
+        updateData.isLatePayment = true;
+      }
+
+      // Generate receipt number if not exists
+      if (!payment.receiptNumber) {
+        updateData.receiptNumber = this.generateReceiptNumber();
+      }
+
+      const updatedPayment = await paymentRepository.update(id, updateData);
+      return updatedPayment;
+    } catch (error) {
+      throw new Error(`Failed to mark payment as completed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Process refund
+   */
+  async processRefund(id, refundData, processedBy) {
+    try {
+      const payment = await paymentRepository.findById(id);
+      if (!payment) {
+        throw new Error('Payment not found');
+      }
+
+      if (payment.status !== 'paid') {
+        throw new Error('Can only refund paid payments');
+      }
+
+      if (refundData.amount > payment.amount) {
+        throw new Error('Refund amount cannot exceed payment amount');
+      }
+
+      const updateData = {
+        status: 'refunded',
+        refund: {
+          amount: refundData.amount,
+          reason: refundData.reason,
+          processedBy,
+          processedAt: new Date()
+        },
+        updatedAt: new Date()
+      };
+
+      const updatedPayment = await paymentRepository.update(id, updateData);
+      return updatedPayment;
+    } catch (error) {
+      throw new Error(`Failed to process refund: ${error.message}`);
+    }
+  }
+
+  /**
+   * Apply late fees to overdue payments
+   */
+  async applyLateFees(lateFeeAmount) {
+    try {
+      // First update overdue status
+      await this.updateOverduePayments();
+
+      // Get all overdue payments without late fees
+      const overduePayments = await paymentRepository.findAll({
+        status: 'overdue',
+        'lateFee.amount': { $lte: 0 }
+      });
+
+      const updatedPayments = [];
+
+      for (const payment of overduePayments.payments) {
+        const daysLate = Math.ceil((new Date() - new Date(payment.dueDate)) / (1000 * 60 * 60 * 24));
+        
+        const lateFee = {
+          amount: lateFeeAmount,
+          reason: `Late payment fee - ${daysLate} days overdue`,
+          appliedDate: new Date()
+        };
+
+        const updatedPayment = await paymentRepository.update(payment._id, {
+          lateFee,
+          updatedAt: new Date()
+        });
+
+        updatedPayments.push(updatedPayment);
+      }
 
       return {
-        success: true,
-        data: result.payments,
-        pagination: result.pagination,
-        message: `Retrieved ${result.payments.length} late payment records`
+        appliedCount: updatedPayments.length,
+        totalLateFees: updatedPayments.length * lateFeeAmount,
+        payments: updatedPayments
       };
     } catch (error) {
-      throw new Error(`Failed to retrieve late payment records: ${error.message}`);
+      throw new Error(`Failed to apply late fees: ${error.message}`);
     }
   }
 
@@ -255,140 +368,114 @@ class PaymentRecordService {
    */
   async getPaymentStatistics(filters) {
     try {
-      const stats = await paymentRecordRepository.getStatistics(filters);
-
-      return {
-        success: true,
-        data: stats,
-        message: 'Payment statistics retrieved successfully'
-      };
+      const stats = await paymentRepository.getStatistics(filters);
+      return stats;
     } catch (error) {
       throw new Error(`Failed to retrieve payment statistics: ${error.message}`);
     }
   }
 
   /**
-   * Get payment history for analytics
+   * Get payment history
    */
   async getPaymentHistory(startDate, endDate, options) {
     try {
-      const history = await paymentRecordRepository.getPaymentHistory(startDate, endDate, options);
-
-      return {
-        success: true,
-        data: history,
-        message: 'Payment history retrieved successfully'
-      };
+      const history = await paymentRepository.getPaymentHistory(startDate, endDate, options);
+      return history;
     } catch (error) {
       throw new Error(`Failed to retrieve payment history: ${error.message}`);
     }
   }
 
   /**
-   * Search payment records
+   * Search payments
    */
-  async searchPaymentRecords(searchQuery, filters) {
+  async searchPayments(searchQuery, filters, options) {
     try {
-      const payments = await paymentRecordRepository.searchPayments(searchQuery, filters);
-
+      const result = await paymentRepository.searchPayments(searchQuery, filters);
       return {
-        success: true,
-        data: payments,
-        message: `Found ${payments.length} payment records matching search criteria`
+        payments: result,
+        total: result.length
       };
     } catch (error) {
-      throw new Error(`Failed to search payment records: ${error.message}`);
+      throw new Error(`Failed to search payments: ${error.message}`);
     }
   }
 
   /**
-   * Get payment records by type
+   * Generate PDF receipt
    */
-  async getPaymentRecordsByType(paymentType, options) {
+  async generateReceiptPDF(paymentId) {
     try {
-      const result = await paymentRecordRepository.findByPaymentType(paymentType, options);
-
-      return {
-        success: true,
-        data: result.payments,
-        pagination: result.pagination,
-        message: `Retrieved ${result.payments.length} ${paymentType} payment records`
-      };
-    } catch (error) {
-      throw new Error(`Failed to retrieve payment records by type: ${error.message}`);
-    }
-  }
-
-  /**
-   * Generate PDF receipt for payment record
-   */
-  async generatePaymentReceipt(paymentId) {
-    try {
-      const paymentRecord = await paymentRecordRepository.findById(paymentId);
-      if (!paymentRecord) {
-        throw new Error('Payment record not found');
+      const payment = await paymentRepository.findById(paymentId);
+      if (!payment) {
+        throw new Error('Payment not found');
       }
+
+      if (payment.status !== 'paid') {
+        throw new Error('Can only generate receipts for paid payments');
+      }
+
+      // Ensure receipts directory exists
+      const receiptsDir = path.join(__dirname, '../../uploads/receipts');
+      if (!fs.existsSync(receiptsDir)) {
+        fs.mkdirSync(receiptsDir, { recursive: true });
+      }
+
+      const filename = `receipt-${payment.receiptNumber}.pdf`;
+      const filepath = path.join(receiptsDir, filename);
 
       return new Promise((resolve, reject) => {
         try {
           const doc = new PDFDocument();
-          let buffers = [];
-
-          doc.on('data', buffers.push.bind(buffers));
-          doc.on('end', () => {
-            const pdfData = Buffer.concat(buffers);
-            resolve({
-              success: true,
-              data: pdfData,
-              filename: `receipt_${paymentRecord.receiptNumber}.pdf`,
-              message: 'Receipt generated successfully'
-            });
-          });
+          const stream = fs.createWriteStream(filepath);
+          
+          doc.pipe(stream);
 
           // Header
           doc.fontSize(20).text('PAYMENT RECEIPT', 50, 50);
-          doc.fontSize(12).text(`Receipt #: ${paymentRecord.receiptNumber}`, 50, 80);
+          doc.fontSize(12).text(`Receipt #: ${payment.receiptNumber}`, 50, 80);
           doc.text(`Date: ${new Date().toLocaleDateString()}`, 50, 95);
 
           // Tenant Information
           doc.fontSize(14).text('Tenant Information:', 50, 130);
           doc.fontSize(10)
-            .text(`Name: ${paymentRecord.tenant.firstName} ${paymentRecord.tenant.lastName}`, 50, 150)
-            .text(`Email: ${paymentRecord.tenant.email}`, 50, 165)
-            .text(`Phone: ${paymentRecord.tenant.phoneNumber}`, 50, 180);
+            .text(`Name: ${payment.tenant.firstName} ${payment.tenant.lastName}`, 50, 150)
+            .text(`Email: ${payment.tenant.email}`, 50, 165)
+            .text(`Phone: ${payment.tenant.phoneNumber}`, 50, 180);
 
           // Room Information
           doc.fontSize(14).text('Room Information:', 300, 130);
           doc.fontSize(10)
-            .text(`Room Number: ${paymentRecord.room.roomNumber}`, 300, 150)
-            .text(`Room Type: ${paymentRecord.room.roomType}`, 300, 165)
-            .text(`Monthly Rent: $${paymentRecord.room.monthlyRent}`, 300, 180);
+            .text(`Room Number: ${payment.room.roomNumber}`, 300, 150)
+            .text(`Room Type: ${payment.room.roomType}`, 300, 165)
+            .text(`Monthly Rent: ₱${payment.room.monthlyRent}`, 300, 180);
 
           // Payment Details
           doc.fontSize(14).text('Payment Details:', 50, 220);
           doc.fontSize(10)
-            .text(`Payment Date: ${new Date(paymentRecord.paymentDate).toLocaleDateString()}`, 50, 240)
-            .text(`Due Date: ${new Date(paymentRecord.dueDate).toLocaleDateString()}`, 50, 255)
-            .text(`Payment Type: ${paymentRecord.paymentType}`, 50, 270)
-            .text(`Payment Method: ${paymentRecord.paymentMethod}`, 50, 285)
-            .text(`Amount: $${paymentRecord.amount.toFixed(2)}`, 50, 300);
+            .text(`Payment Date: ${new Date(payment.paymentDate).toLocaleDateString()}`, 50, 240)
+            .text(`Due Date: ${new Date(payment.dueDate).toLocaleDateString()}`, 50, 255)
+            .text(`Payment Type: ${payment.paymentType}`, 50, 270)
+            .text(`Payment Method: ${payment.paymentMethod}`, 50, 285)
+            .text(`Amount: ₱${payment.amount.toFixed(2)}`, 50, 300);
 
-          if (paymentRecord.lateFee.applied) {
-            doc.text(`Late Fee: $${paymentRecord.lateFee.amount.toFixed(2)}`, 50, 315);
-            doc.text(`Total Amount: $${(paymentRecord.amount + paymentRecord.lateFee.amount).toFixed(2)}`, 50, 330);
+          if (payment.lateFee && payment.lateFee.amount > 0) {
+            doc.text(`Late Fee: ₱${payment.lateFee.amount.toFixed(2)}`, 50, 315);
+            doc.text(`Total Amount: ₱${(payment.amount + payment.lateFee.amount).toFixed(2)}`, 50, 330);
           }
 
-          if (paymentRecord.transactionReference) {
-            doc.text(`Transaction Reference: ${paymentRecord.transactionReference}`, 50, 345);
+          if (payment.transactionReference) {
+            doc.text(`Transaction Reference: ${payment.transactionReference}`, 50, 345);
           }
 
-          if (paymentRecord.description) {
-            doc.text(`Description: ${paymentRecord.description}`, 50, 360);
+          if (payment.description) {
+            doc.text(`Description: ${payment.description}`, 50, 360);
           }
 
           // Status
-          const statusY = paymentRecord.lateFee.applied ? 380 : 345;
-          if (paymentRecord.isLatePayment) {
+          const statusY = payment.lateFee && payment.lateFee.amount > 0 ? 380 : 345;
+          if (payment.isLatePayment) {
             doc.fillColor('red').text('LATE PAYMENT', 50, statusY);
           } else {
             doc.fillColor('green').text('ON TIME PAYMENT', 50, statusY);
@@ -401,12 +488,52 @@ class PaymentRecordService {
             .text(`Generated on: ${new Date().toISOString()}`, 50, 515);
 
           doc.end();
+
+          stream.on('finish', () => {
+            resolve({
+              filename,
+              filepath,
+              payment
+            });
+          });
+
+          stream.on('error', reject);
         } catch (error) {
           reject(error);
         }
       });
     } catch (error) {
       throw new Error(`Failed to generate receipt: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update overdue payments
+   */
+  async updateOverduePayments() {
+    try {
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0); // Start of today
+      
+      const result = await paymentRepository.findAll({
+        status: 'pending',
+        dueDate: { $lt: currentDate }
+      });
+
+      const updatePromises = result.payments.map(payment => 
+        paymentRepository.update(payment._id, { 
+          status: 'overdue',
+          updatedAt: new Date()
+        })
+      );
+
+      await Promise.all(updatePromises);
+
+      return {
+        updatedCount: result.payments.length
+      };
+    } catch (error) {
+      throw new Error(`Failed to update overdue payments: ${error.message}`);
     }
   }
 
@@ -420,9 +547,9 @@ class PaymentRecordService {
   }
 
   /**
-   * Validate payment record data
+   * Validate payment data
    */
-  validatePaymentRecordData(paymentData) {
+  validatePaymentData(paymentData) {
     const errors = [];
 
     if (!paymentData.tenant) {
@@ -437,10 +564,6 @@ class PaymentRecordService {
       errors.push('Valid payment amount is required');
     }
 
-    if (!paymentData.paymentDate) {
-      errors.push('Payment date is required');
-    }
-
     if (!paymentData.dueDate) {
       errors.push('Due date is required');
     }
@@ -453,12 +576,12 @@ class PaymentRecordService {
       errors.push('Payment method is required');
     }
 
-    const validPaymentTypes = ['rent', 'deposit', 'utilities', 'maintenance', 'late_fee', 'other'];
+    const validPaymentTypes = ['rent', 'deposit', 'utility', 'maintenance', 'penalty', 'other'];
     if (paymentData.paymentType && !validPaymentTypes.includes(paymentData.paymentType)) {
       errors.push('Invalid payment type');
     }
 
-    const validPaymentMethods = ['cash', 'bank_transfer', 'check', 'credit_card', 'mobile_payment', 'other'];
+    const validPaymentMethods = ['cash', 'bank_transfer', 'check', 'credit_card', 'debit_card', 'digital_wallet', 'money_order'];
     if (paymentData.paymentMethod && !validPaymentMethods.includes(paymentData.paymentMethod)) {
       errors.push('Invalid payment method');
     }
@@ -467,29 +590,25 @@ class PaymentRecordService {
   }
 
   /**
-   * Get payment records summary for dashboard
+   * Get payments summary for dashboard
    */
-  async getPaymentRecordsSummary(filters = {}) {
+  async getPaymentsSummary(filters = {}) {
     try {
-      const [stats, recentPayments, latePayments] = await Promise.all([
-        paymentRecordRepository.getStatistics(filters),
-        paymentRecordRepository.findAll({}, { limit: 5, sort: { paymentDate: -1 } }),
-        paymentRecordRepository.findLatePayments({ limit: 5 })
+      const [stats, recentPayments, overduePayments] = await Promise.all([
+        paymentRepository.getStatistics(filters),
+        paymentRepository.findAll({}, { limit: 5, sort: { paymentDate: -1 } }),
+        this.getOverduePayments({ limit: 5 })
       ]);
 
       return {
-        success: true,
-        data: {
-          statistics: stats,
-          recentPayments: recentPayments.payments,
-          latePayments: latePayments.payments
-        },
-        message: 'Payment records summary retrieved successfully'
+        statistics: stats,
+        recentPayments: recentPayments.payments,
+        overduePayments: overduePayments.payments
       };
     } catch (error) {
-      throw new Error(`Failed to retrieve payment records summary: ${error.message}`);
+      throw new Error(`Failed to retrieve payments summary: ${error.message}`);
     }
   }
 }
 
-module.exports = new PaymentRecordService();
+module.exports = new PaymentService();

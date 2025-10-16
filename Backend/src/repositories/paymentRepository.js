@@ -420,6 +420,10 @@ class PaymentRecordRepository {
       query.room = mongoose.Types.ObjectId(filters.roomId);
     }
 
+    if (filters.status) {
+      query.status = filters.status;
+    }
+
     if (filters.paymentType) {
       query.paymentType = filters.paymentType;
     }
@@ -438,6 +442,19 @@ class PaymentRecordRepository {
       }
     }
 
+    if (filters.dueDate) {
+      query.dueDate = {};
+      if (filters.dueDate.$lt) {
+        query.dueDate.$lt = filters.dueDate.$lt;
+      }
+      if (filters.dueDate.$gte) {
+        query.dueDate.$gte = filters.dueDate.$gte;
+      }
+      if (filters.dueDate.$lte) {
+        query.dueDate.$lte = filters.dueDate.$lte;
+      }
+    }
+
     if (filters.amountMin || filters.amountMax) {
       query.amount = {};
       if (filters.amountMin) {
@@ -450,6 +467,15 @@ class PaymentRecordRepository {
 
     if (filters.isLatePayment === 'true' || filters.isLatePayment === true) {
       query.isLatePayment = true;
+    }
+
+    if (filters.overdue === 'true' || filters.overdue === true) {
+      query.status = 'overdue';
+    }
+
+    // Handle complex filters
+    if (filters['lateFee.amount']) {
+      query['lateFee.amount'] = filters['lateFee.amount'];
     }
 
     return query;
