@@ -1,5 +1,7 @@
 const userRepository = require('../repositories/userRepository');
 const { generateAccessToken } = require('../utils/jwt');
+const Tenant = require('../models/Tenant');
+const Room = require('../models/Room');
 
 class AuthService {
   // Register new user
@@ -211,16 +213,215 @@ class AuthService {
   async getAllUsers() {
     try {
       const users = await userRepository.findAll();
-      return users.map(user => ({
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        isActive: user.isActive,
-        lastLogin: user.lastLogin,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      }));
+      
+      // Get tenant data for users with tenant role
+      const tenantUserIds = users.filter(user => user.role === 'tenant').map(user => user._id);
+      const tenants = await Tenant.find({ userId: { $in: tenantUserIds } }).lean();
+      
+      // Debug logging for tenant data
+      console.log('=== DEBUG: getAllUsers ===');
+      console.log('Total users:', users.length);
+      console.log('Tenant user IDs:', tenantUserIds);
+      console.log('Total tenants found:', tenants.length);
+      tenants.forEach(tenant => {
+        console.log(`Tenant ${tenant.firstName} ${tenant.lastName}: roomNumber = ${tenant.roomNumber}`);
+      });
+      console.log('========================');
+      
+      // Create a map for quick lookup
+      const tenantMap = new Map();
+      tenants.forEach(tenant => {
+        // Debug each tenant's userId
+        console.log('Processing tenant:', tenant.firstName, tenant.lastName);
+        console.log('tenant.userId:', tenant.userId);
+        console.log('tenant.userId type:', typeof tenant.userId);
+        console.log('tenant.userId toString:', tenant.userId ? tenant.userId.toString() : 'null');
+        
+        // Handle both ObjectId and populated User object cases
+        let userIdString = null;
+        if (tenant.userId) {
+          if (typeof tenant.userId === 'object' && tenant.userId._id) {
+            // If userId is a populated User object, use the _id
+            userIdString = tenant.userId._id.toString();
+            console.log('Using populated User object _id:', userIdString);
+          } else {
+            // If userId is an ObjectId, convert to string
+            userIdString = tenant.userId.toString();
+            console.log('Using ObjectId toString:', userIdString);
+          }
+        }
+        if (userIdString) {
+          tenantMap.set(userIdString, tenant);
+          console.log('Added to map with key:', userIdString);
+        } else {
+          console.log('Skipped tenant - no userId');
+        }
+      });
+      
+      // Debug logging for tenantMap
+      console.log('=== TENANT MAP DEBUG ===');
+      console.log('Total tenants in map:', tenantMap.size);
+      console.log('Tenant map keys:', Array.from(tenantMap.keys()).slice(0, 5));
+      console.log('Looking for user ID:', '68f091e8e4ae2765eeffb313');
+      console.log('Found in map:', tenantMap.has('68f091e8e4ae2765eeffb313'));
+      console.log('========================');
+
+      // Fetch room details for assigned rooms
+      const roomNumbers = tenants
+        .filter(t => t.roomNumber && t.roomNumber !== null && t.roomNumber !== '')
+        .map(t => t.roomNumber);
+        
+      const rooms = await Room.find({ roomNumber: { $in: roomNumbers } }).lean();
+      const roomMap = new Map(rooms.map(r => [r.roomNumber, r]));
+
+      // Format response for frontend
+      return users.map(user => {
+        const tenant = tenantMap.get(user._id.toString());
+        const room = tenant?.roomNumber && tenant.roomNumber !== null && tenant.roomNumber !== '' ? roomMap.get(tenant.roomNumber) : null;
+        
+        // Debug logging for jerie user
+        if (user.username === 'jerie') {
+          console.log('=== JERIE BACKEND DEBUG ===');
+          console.log('User _id:', user._id);
+          console.log('User _id toString:', user._id.toString());
+          console.log('Tenant found:', !!tenant);
+          console.log('Tenant:', tenant);
+          console.log('Room found:', !!room);
+          console.log('Room:', room);
+          console.log('===========================');
+        }
+        
+        return {
+          id: user._id,
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          lastLogin: user.lastLogin,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          tenant: tenant ? {
+            firstName: tenant.firstName,
+            lastName: tenant.lastName,
+            phoneNumber: tenant.phoneNumber,
+            roomNumber: tenant.roomNumber,
+            tenantStatus: tenant.tenantStatus,
+            monthlyRent: tenant.monthlyRent,
+            room: room ? {
+              roomNumber: room.roomNumber,
+              roomType: room.roomType,
+              status: room.status,
+              monthlyRent: room.monthlyRent,
+              capacity: room.capacity
+            } : null
+          } : null
+        };
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get users by role
+  async getUsersByRole(role) {
+    try {
+      const users = await userRepository.findByRole(role);
+      
+      // Get tenant data for users with tenant role
+      const tenantUserIds = users.filter(user => user.role === 'tenant').map(user => user._id);
+      const tenants = await Tenant.find({ userId: { $in: tenantUserIds } }).lean();
+      
+      // Create a map for quick lookup
+      const tenantMap = new Map();
+      tenants.forEach(tenant => {
+        // Debug each tenant's userId
+        console.log('Processing tenant:', tenant.firstName, tenant.lastName);
+        console.log('tenant.userId:', tenant.userId);
+        console.log('tenant.userId type:', typeof tenant.userId);
+        console.log('tenant.userId toString:', tenant.userId ? tenant.userId.toString() : 'null');
+        
+        // Handle both ObjectId and populated User object cases
+        let userIdString = null;
+        if (tenant.userId) {
+          if (typeof tenant.userId === 'object' && tenant.userId._id) {
+            // If userId is a populated User object, use the _id
+            userIdString = tenant.userId._id.toString();
+            console.log('Using populated User object _id:', userIdString);
+          } else {
+            // If userId is an ObjectId, convert to string
+            userIdString = tenant.userId.toString();
+            console.log('Using ObjectId toString:', userIdString);
+          }
+        }
+        if (userIdString) {
+          tenantMap.set(userIdString, tenant);
+          console.log('Added to map with key:', userIdString);
+        } else {
+          console.log('Skipped tenant - no userId');
+        }
+      });
+      
+      // Debug logging for tenantMap
+      console.log('=== TENANT MAP DEBUG ===');
+      console.log('Total tenants in map:', tenantMap.size);
+      console.log('Tenant map keys:', Array.from(tenantMap.keys()).slice(0, 5));
+      console.log('Looking for user ID:', '68f091e8e4ae2765eeffb313');
+      console.log('Found in map:', tenantMap.has('68f091e8e4ae2765eeffb313'));
+      console.log('========================');
+
+      // Fetch room details for assigned rooms
+      const roomNumbers = tenants
+        .filter(t => t.roomNumber && t.roomNumber !== null && t.roomNumber !== '')
+        .map(t => t.roomNumber);
+        
+      const rooms = await Room.find({ roomNumber: { $in: roomNumbers } }).lean();
+      const roomMap = new Map(rooms.map(r => [r.roomNumber, r]));
+
+      // Format response for frontend
+      return users.map(user => {
+        const tenant = tenantMap.get(user._id.toString());
+        const room = tenant?.roomNumber && tenant.roomNumber !== null && tenant.roomNumber !== '' ? roomMap.get(tenant.roomNumber) : null;
+        
+        // Debug logging for jerie user
+        if (user.username === 'jerie') {
+          console.log('=== JERIE BACKEND DEBUG ===');
+          console.log('User _id:', user._id);
+          console.log('User _id toString:', user._id.toString());
+          console.log('Tenant found:', !!tenant);
+          console.log('Tenant:', tenant);
+          console.log('Room found:', !!room);
+          console.log('Room:', room);
+          console.log('===========================');
+        }
+        
+        return {
+          id: user._id,
+          _id: user._id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          lastLogin: user.lastLogin,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          tenant: tenant ? {
+            firstName: tenant.firstName,
+            lastName: tenant.lastName,
+            phoneNumber: tenant.phoneNumber,
+            roomNumber: tenant.roomNumber,
+            tenantStatus: tenant.tenantStatus,
+            monthlyRent: tenant.monthlyRent,
+            room: room ? {
+              roomNumber: room.roomNumber,
+              roomType: room.roomType,
+              status: room.status,
+              monthlyRent: room.monthlyRent,
+              capacity: room.capacity
+            } : null
+          } : null
+        };
+      });
     } catch (error) {
       throw error;
     }

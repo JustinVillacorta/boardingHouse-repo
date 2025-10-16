@@ -1,33 +1,80 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  Search,
-  Bell,
-  House,
-  Dot,
-  Clock,
-  TrendingUp,
+import { 
+  Search, 
   LayoutDashboard,
-  LogOut,
-  User,
-  Users,
   DoorOpen,
   PhilippinePeso,
   Wrench,
-  BellDot
-} from "lucide-react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+  BellDot,
+  LogOut,
+  Bell,
+  User,
+  CheckCircle, 
+  Play, 
+  Pause,
+  Clock, 
+  AlertCircle,
+  Calendar
+} from 'lucide-react';
+import { useAuth } from "../../contexts/AuthContext";
+
+// ✅ Define allowed status keys
+type StatusKey = "all" | "completed" | "maintenance" | "complaint" | "pending";
+
+/* -------------------- SAMPLE TASK DATA -------------------- */
+const tasks = [
+  {
+    id: 1,
+    title: "Light Bulb",
+    description: "Bedroom light bulb needs replacement",
+    status: "pending",
+    priority: "high",
+    assignee: "Sarah Chen",
+    dueDate: "2024-03-15",
+    progress: 50,
+  },
+  {
+    id: 2,
+    title: "Air Conditioning",
+    description: "AC not cooling properly",
+    status: "maintenance",
+    priority: "high",
+    assignee: "Mike Johnson",
+    dueDate: "2024-03-20",
+    progress: 65,
+  },
+  {
+    id: 3,
+    title: "Leaky Faucet",
+    description: "Bathroom faucet drips constantly.",
+    status: "maintenance",
+    priority: "medium",
+    assignee: "Alex Rivera",
+    dueDate: "2024-03-25",
+    progress: 30,
+  },
+  {
+    id: 4,
+    title: "Loud Noise On Next Room",
+    description: "Noise complaint at room 382",
+    status: "complaint",
+    priority: "low",
+    assignee: "Mia Khalifa",
+    dueDate: "2024-03-30",
+    progress: 0,
+  },
+  {
+    id: 5,
+    title: "Broken Window",
+    description: "I can't close the window",
+    status: "completed",
+    priority: "low",
+    assignee: "Emma Watson",
+    dueDate: "2024-03-30",
+    progress: 100,
+  },
+];
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -35,9 +82,9 @@ const TopNavbar: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const notifications = [
-    { id: 1, text: "Need Better Notifications Design" },
-    { id: 2, text: "Make the Website Responsive" },
-    { id: 3, text: "Fix Bug of Able to go Back to a Page" },
+    { id: 1, text: "New notification received" },
+    { id: 2, text: "System maintenance scheduled" },
+    { id: 3, text: "Monthly reminder" },
   ];
 
   return (
@@ -45,16 +92,15 @@ const TopNavbar: React.FC = () => {
       <div className="flex items-center justify-between h-10">
         {/* Left: Logo/Title */}
         <div
-          onClick={() => navigate("/main")}
+          onClick={() => navigate("/staff-dashboard")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
-            Dashboard
+            Notifications
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            Your room info, payments Account status
+            Manage system notifications and alerts
           </p>
         </div>
-
 
         {/* Right */}
         <div className="flex items-center space-x-4">
@@ -105,7 +151,6 @@ const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>
@@ -117,12 +162,18 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    }
   };
 
   const navigationItems = [
@@ -167,11 +218,11 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.username ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase() : 'U'}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -191,7 +242,6 @@ const Sidebar: React.FC = () => {
               </div>
             </div>
           </div>
-
         </div>
         
         <nav className="mt-6">
@@ -244,226 +294,222 @@ const Sidebar: React.FC = () => {
   );
 };
 
-/* -------------------- DASHBOARD -------------------- */
-const workLogData = [
-  { name: "Occupied", value: 18, color: "#899effff" },
-  { name: "Vacant", value: 2, color: "#ff7575ff" }
-];
-/* -------------------- PERFORMANCE DATA -------------------- */
-type PaymentData = {
-  month: string;
-  collected: number;
-  overdue: number;
+/* -------------------- HELPERS -------------------- */
+const getStatusIcon = (status: string) => {
+  switch (status) {
+    case "completed":
+      return <CheckCircle className="w-4 h-4 text-green-500" />;
+    case "maintenance":
+      return <Play className="w-4 h-4 text-blue-500" />;
+    case "complaint":
+      return <Pause className="w-4 h-4 text-orange-500" />;
+    case "Pending":
+      return <Clock className="w-4 h-4 text-red-500" />;
+    default:
+      return <AlertCircle className="w-4 h-4 text-gray-500" />;
+  }
 };
 
-const SAMPLE_PAYMENTS: PaymentData[] = [
-  { month: "Jan", collected: 13500, overdue: 500 },
-  { month: "Feb", collected: 13200, overdue: 700 },
-  { month: "Mar", collected: 13800, overdue: 600 },
-  { month: "Apr", collected: 13000, overdue: 900 },
-];
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "completed":
+      return "bg-green-100 text-green-800";
+    case "maintenance":
+      return "bg-blue-100 text-blue-800";
+    case "complaint":
+      return "bg-red-100 text-red-800";
+    case "pending":
+      return "bg-orange-100 text-orange-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+};
 
-const Dashboard: React.FC = () => {
+const getPriorityColor = (priority: string) => {
+  switch (priority) {
+    case "high":
+      return "border-l-red-500";
+    case "medium":
+      return "border-l-yellow-500";
+    case "low":
+      return "border-l-green-500";
+    default:
+      return "border-l-gray-500";
+  }
+};  
+
+/* -------------------- MAIN REPORT COMPONENT -------------------- */
+const StaffNotifications: React.FC = () => {
+  const [activeFilter, setActiveFilter] = useState<StatusKey>("all");
+
+  const filteredTasks = tasks.filter((task) => {
+    if (activeFilter === "all") return true;
+    return task.status === activeFilter;
+  });
+
+  const statusCounts: Record<StatusKey, number> = {
+    all: tasks.length,
+    completed: tasks.filter((t) => t.status === "completed").length,
+    "maintenance": tasks.filter((t) => t.status === "maintenance").length,
+    "complaint": tasks.filter((t) => t.status === "complaint").length,
+    pending: tasks.filter((t) => t.status === "pending").length,
+  };
+
+  const filters: { key: StatusKey; label: string }[] = [
+    { key: "all", label: "All Reports" },
+    { key: "completed", label: "Completed" },
+    { key: "maintenance", label: "Maintenance" },
+    { key: "complaint", label: "Complaint" },
+    { key: "pending", label: "Pending" },
+  ];
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 pl-64">
         <TopNavbar />
+        
+        {/* Main Content Area */}
+        <main className="flex-1 p-6 overflow-auto">
 
-        {/* Dashboard Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
-          {/* Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-4">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                {/* Top row with text + icon */}
-                <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <House className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-medium font-medium text-gray-500">Total Rooms</p>
-                    <p className="text-2xl font-semibold text-gray-900">20</p>
-                  </div>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Projects</p>
+                  <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
                 </div>
-
-                {/* Dots below */}
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                    <span className="text-medium font-semibold text-gray-700">18 Occupied</span>
-                    <Dot/>
-                    <span className="text-medium font-semibold text-gray-700">2 Vacant</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <p className="text-sm font-medium text-gray-500">Total Tenants</p>
-                          <p className="text-2xl font-semibold text-gray-900">18</p>
-                      </div>
-                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                          <Users className="w-6 h-6 text-green-600" />
-                      </div>
-                  </div>
-
-                  {/* Dots below */}
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                     <span className="text-medium font-semibold text-gray-700">Active Tenancies</span>
-                  </div> 
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <p className="text-sm font-medium text-gray-500">Monthly Revenue</p>
-                          <p className="text-2xl font-semibold text-gray-900">4</p>
-                      </div>
-                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                          <Clock className="w-6 h-6 text-orange-600" />
-                      </div>
-                  </div>
-
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                     <span className="text-medium font-semibold text-gray-700">82.0% Collected</span>
-                  </div> 
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <p className="text-sm font-medium text-gray-500">Maintenance Request</p>
-                          <p className="text-2xl font-semibold text-gray-900">3</p>
-                      </div>
-                      <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                          <TrendingUp className="w-6 h-6 text-purple-600" />
-                      </div>
-                  </div>
-
-                  
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                     <span className="text-medium font-semibold text-gray-700">Total Open Request</span>
-                  </div> 
-                </div>
-
-              </div>
-          </div>
-
-          {/* Row 1: Work Log + Performance */}
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            {/* Work Log Card */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-800">Occupancy Rate</h2>
-                <label htmlFor="performance-timeframe" className="sr-only">Select Timeframe</label>
-              </div>
-
-              {/* Flex container for Pie + Legend */}
-              <div className="flex items-center justify-center">
-                {/* Pie Chart */}
-                <div className="h-64 w-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={workLogData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={80}
-                        paddingAngle={0}
-                        dataKey="value"
-                      >
-                        {workLogData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Product List */}
-                <div className="ml-6 space-y-3">
-                  {workLogData.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between w-32">
-                      <div className="flex items-center space-x-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: item.color }}
-                        ></div>
-                        <span className="text-xs text-gray-600">{item.name}</span>
-                      </div>
-                      <span className="text-xs font-medium text-gray-800">{item.value}%</span>
-                    </div>
-                  ))}
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-blue-600" />
                 </div>
               </div>
             </div>
 
-            {/* Payment Performance Card */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Monthly Payment Trends</h2>
-                <span className="text-sm text-gray-600">82.0%</span>
-              </div>
-              <p className="text-sm text-gray-500 mb-4">Payment collection performance over time</p>
-
-              {/* Line Chart */}
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={SAMPLE_PAYMENTS}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#6B7280" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#6B7280" />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="collected"
-                      stroke="#3B82F6"
-                      strokeWidth={3}
-                      dot={{ fill: "#3B82F6", r: 3 }}
-                      name="Collected"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="overdue"
-                      stroke="#EF4444"
-                      strokeWidth={3}
-                      dot={{ fill: "#EF4444", r: 3 }}
-                      name="Overdue"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Summary */}
-              <div className="flex justify-center gap-6 mt-6">
-                <div className="px-6 py-3 bg-blue-50 rounded-lg text-center">
-                  <p className="text-blue-600 font-semibold">₱ 12,505</p>
-                  <p className="text-sm text-gray-600">Collected</p>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Completed</p>
+                  <p className="text-2xl font-bold text-green-600">{statusCounts.completed}</p>
                 </div>
-                <div className="px-6 py-3 bg-red-50 rounded-lg text-center">
-                  <p className="text-red-600 font-semibold">₱ 945</p>
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">In Progress</p>
+                  <p className="text-2xl font-bold text-blue-600">{statusCounts['maintenance']}</p>
+                </div>
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Play className="w-4 h-4 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
                   <p className="text-sm text-gray-600">Overdue</p>
+                  <p className="text-2xl font-bold text-red-600">3</p>
+                </div>
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-red-600" />
                 </div>
               </div>
             </div>
-
           </div>
+
+          {/* Search and View Controls */}
+          <div className="flex flex-col mb-6">
+            {/* Search Bar */}
+            <div className="flex-1">
+                <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                    type="text"
+                    placeholder="Search tasks..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                </div>
+            </div>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex gap-4 mb-6 border-b border-gray-200">
+            {filters.map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => setActiveFilter(filter.key)}
+                className={`pb-3 px-1 border-b-2 font-medium text-sm ${
+                  activeFilter === filter.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {filter.label} ({statusCounts[filter.key]})
+              </button>
+            ))}
+          </div>
+
+          {/* Task List */}
+          <div className="space-y-4">
+            {filteredTasks.map(task => (
+              <div
+                key={task.id}
+                className={`bg-white rounded-lg shadow-sm border-l-4 ${getPriorityColor(task.priority)} p-6 hover:shadow-md transition-shadow`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {getStatusIcon(task.status)}
+                      <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                        {task.status.replace('-', ' ')}
+                      </span>
+                    </div>
+
+                    <p className="text-gray-600 mb-4">{task.description}</p>
+
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <User className="w-4 h-4" />
+                        <span>{task.assignee}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        <span>{task.dueDate}</span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <div className="ml-6 text-right">
+                    <div className="text-sm text-gray-500 mb-2">Priority</div>
+                    <div className="flex flex-col items-end">
+                      <span className={`px-3 py-2 rounded-lg text-sm font-medium border ${
+                        task.priority === 'high' 
+                          ? 'bg-red-50 text-red-800 border-red-200'
+                          : task.priority === 'medium'
+                          ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
+                          : 'bg-green-50 text-green-800 border-green-200'
+                      }`}>
+                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
         </main>
       </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default StaffNotifications;

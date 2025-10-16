@@ -1,33 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import {
-  Search,
+import { 
+  Search, 
+  Plus,
   Bell,
-  House,
-  Dot,
-  Clock,
-  TrendingUp,
   LayoutDashboard,
-  LogOut,
   User,
-  Users,
   DoorOpen,
   PhilippinePeso,
   Wrench,
-  BellDot
-} from "lucide-react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+  BellDot,
+  LogOut,
+  SquarePen,
+  RotateCcw
+} from 'lucide-react';
+import { useAuth } from "../../contexts/AuthContext";
+import { useRooms } from '../../features/rooms/presentation/hooks/useRooms';
+import CreateRoomModal from '../../features/rooms/presentation/components/CreateRoomModal';
+import EditRoomModal from '../../features/rooms/presentation/components/EditRoomModal';
+import type { CreateRoomRequest, RoomFilters } from '../../features/rooms/domain/entities/Room';
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -35,9 +26,9 @@ const TopNavbar: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const notifications = [
-    { id: 1, text: "Need Better Notifications Design" },
-    { id: 2, text: "Make the Website Responsive" },
-    { id: 3, text: "Fix Bug of Able to go Back to a Page" },
+    { id: 1, text: "Room 101 needs maintenance" },
+    { id: 2, text: "New tenant assigned to Room 205" },
+    { id: 3, text: "Monthly rent collection due" },
   ];
 
   return (
@@ -45,16 +36,15 @@ const TopNavbar: React.FC = () => {
       <div className="flex items-center justify-between h-10">
         {/* Left: Logo/Title */}
         <div
-          onClick={() => navigate("/main")}
+          onClick={() => navigate("/staff-dashboard")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
-            Dashboard
+            Rooms
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            Your room info, payments Account status
+            Manage room inventory and occupancy
           </p>
         </div>
-
 
         {/* Right */}
         <div className="flex items-center space-x-4">
@@ -105,7 +95,6 @@ const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>
@@ -117,12 +106,18 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    }
   };
 
   const navigationItems = [
@@ -167,11 +162,11 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.username ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase() : 'U'}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -191,7 +186,6 @@ const Sidebar: React.FC = () => {
               </div>
             </div>
           </div>
-
         </div>
         
         <nav className="mt-6">
@@ -244,226 +238,231 @@ const Sidebar: React.FC = () => {
   );
 };
 
-/* -------------------- DASHBOARD -------------------- */
-const workLogData = [
-  { name: "Occupied", value: 18, color: "#899effff" },
-  { name: "Vacant", value: 2, color: "#ff7575ff" }
-];
-/* -------------------- PERFORMANCE DATA -------------------- */
-type PaymentData = {
-  month: string;
-  collected: number;
-  overdue: number;
-};
+const StaffRooms: React.FC = () => {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<RoomFilters>({
+    roomType: undefined,
+    status: undefined,
+    minRent: undefined,
+    maxRent: undefined,
+  });
 
-const SAMPLE_PAYMENTS: PaymentData[] = [
-  { month: "Jan", collected: 13500, overdue: 500 },
-  { month: "Feb", collected: 13200, overdue: 700 },
-  { month: "Mar", collected: 13800, overdue: 600 },
-  { month: "Apr", collected: 13000, overdue: 900 },
-];
+  const {
+    rooms,
+    isLoading: loading,
+    error,
+    createRoom,
+    deleteRoom,
+    fetchRooms,
+  } = useRooms();
 
-const Dashboard: React.FC = () => {
+  // Load rooms on component mount
+  useEffect(() => {
+    fetchRooms();
+  }, [fetchRooms]);
+
+  const handleCreateRoom = async (roomData: CreateRoomRequest) => {
+    try {
+      await createRoom(roomData);
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      console.error('Failed to create room:', error);
+    }
+  };
+
+  const handleEditRoom = async () => {
+    if (!selectedRoom) return;
+    
+    try {
+      // The EditRoomModal handles the update internally
+      setIsEditModalOpen(false);
+      setSelectedRoom(null);
+      // Refresh the rooms list
+      fetchRooms();
+    } catch (error) {
+      console.error('Failed to update room:', error);
+    }
+  };
+
+  const handleDeleteRoom = async (roomId: string) => {
+    if (window.confirm('Are you sure you want to delete this room?')) {
+      try {
+        await deleteRoom(roomId);
+      } catch (error) {
+        console.error('Failed to delete room:', error);
+      }
+    }
+  };
+
+  const filteredRooms = rooms.filter(room => {
+    const matchesSearch = room.roomNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         room.roomType.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesFilters = (!filters.roomType || room.roomType === filters.roomType) &&
+                          (!filters.status || room.status === filters.status) &&
+                          (!filters.minRent || room.monthlyRent >= Number(filters.minRent)) &&
+                          (!filters.maxRent || room.monthlyRent <= Number(filters.maxRent));
+    
+    return matchesSearch && matchesFilters;
+  });
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 pl-64">
         <TopNavbar />
-
-        {/* Dashboard Content */}
-        <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
-          {/* Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-4">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                {/* Top row with text + icon */}
-                <div className="flex items-center justify-between">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <House className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-medium font-medium text-gray-500">Total Rooms</p>
-                    <p className="text-2xl font-semibold text-gray-900">20</p>
-                  </div>
-                </div>
-
-                {/* Dots below */}
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                    <span className="text-medium font-semibold text-gray-700">18 Occupied</span>
-                    <Dot/>
-                    <span className="text-medium font-semibold text-gray-700">2 Vacant</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <p className="text-sm font-medium text-gray-500">Total Tenants</p>
-                          <p className="text-2xl font-semibold text-gray-900">18</p>
-                      </div>
-                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                          <Users className="w-6 h-6 text-green-600" />
-                      </div>
-                  </div>
-
-                  {/* Dots below */}
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                     <span className="text-medium font-semibold text-gray-700">Active Tenancies</span>
-                  </div> 
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <p className="text-sm font-medium text-gray-500">Monthly Revenue</p>
-                          <p className="text-2xl font-semibold text-gray-900">4</p>
-                      </div>
-                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                          <Clock className="w-6 h-6 text-orange-600" />
-                      </div>
-                  </div>
-
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                     <span className="text-medium font-semibold text-gray-700">82.0% Collected</span>
-                  </div> 
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <div className="flex items-center justify-between">
-                      <div>
-                          <p className="text-sm font-medium text-gray-500">Maintenance Request</p>
-                          <p className="text-2xl font-semibold text-gray-900">3</p>
-                      </div>
-                      <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                          <TrendingUp className="w-6 h-6 text-purple-600" />
-                      </div>
-                  </div>
-
-                  
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-center">
-                    <Dot />
-                     <span className="text-medium font-semibold text-gray-700">Total Open Request</span>
-                  </div> 
-                </div>
-
-              </div>
+        
+        {/* Main Content */}
+        <main className="flex-1 p-6 overflow-auto">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Room Management</h2>
+              <p className="text-gray-600">Manage room inventory and occupancy</p>
+            </div>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add Room
+            </button>
           </div>
 
-          {/* Row 1: Work Log + Performance */}
-          <div className="grid lg:grid-cols-2 gap-6">
-
-            {/* Work Log Card */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-800">Occupancy Rate</h2>
-                <label htmlFor="performance-timeframe" className="sr-only">Select Timeframe</label>
+          {/* Search and Filters */}
+          <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+            <div className="flex gap-4 items-center">
+              <div className="flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search rooms..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
+              <select
+                value={filters.roomType || ""}
+                onChange={(e) => setFilters(prev => ({ ...prev, roomType: e.target.value as any || undefined }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">All Types</option>
+                <option value="single">Single</option>
+                <option value="double">Double</option>
+                <option value="suite">Suite</option>
+              </select>
+              <select
+                value={filters.status || ""}
+                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any || undefined }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">All Status</option>
+                <option value="available">Available</option>
+                <option value="occupied">Occupied</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
+            </div>
+          </div>
 
-              {/* Flex container for Pie + Legend */}
-              <div className="flex items-center justify-center">
-                {/* Pie Chart */}
-                <div className="h-64 w-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={workLogData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={80}
-                        paddingAngle={0}
-                        dataKey="value"
-                      >
-                        {workLogData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                {/* Product List */}
-                <div className="ml-6 space-y-3">
-                  {workLogData.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between w-32">
-                      <div className="flex items-center space-x-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: item.color }}
-                        ></div>
-                        <span className="text-xs text-gray-600">{item.name}</span>
-                      </div>
-                      <span className="text-xs font-medium text-gray-800">{item.value}%</span>
+          {/* Rooms Grid */}
+          {loading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : error ? (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredRooms.map((room) => (
+                <div key={room._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Room {room.roomNumber}</h3>
+                      <p className="text-sm text-gray-600 capitalize">{room.roomType}</p>
                     </div>
-                  ))}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      room.status === 'available' ? 'bg-green-100 text-green-800' :
+                      room.status === 'occupied' ? 'bg-blue-100 text-blue-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {room.status}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Monthly Rent:</span>
+                      <span className="text-sm font-medium">₱{room.monthlyRent.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Capacity:</span>
+                      <span className="text-sm font-medium">{room.capacity} person(s)</span>
+                    </div>
+                    {room.description && (
+                      <p className="text-sm text-gray-600">{room.description}</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedRoom(room);
+                        setIsEditModalOpen(true);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                    >
+                      <SquarePen className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteRoom(room._id)}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
+          )}
 
-            {/* Payment Performance Card */}
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Monthly Payment Trends</h2>
-                <span className="text-sm text-gray-600">82.0%</span>
-              </div>
-              <p className="text-sm text-gray-500 mb-4">Payment collection performance over time</p>
-
-              {/* Line Chart */}
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={SAMPLE_PAYMENTS}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#6B7280" />
-                    <YAxis tick={{ fontSize: 12 }} stroke="#6B7280" />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="collected"
-                      stroke="#3B82F6"
-                      strokeWidth={3}
-                      dot={{ fill: "#3B82F6", r: 3 }}
-                      name="Collected"
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="overdue"
-                      stroke="#EF4444"
-                      strokeWidth={3}
-                      dot={{ fill: "#EF4444", r: 3 }}
-                      name="Overdue"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Summary */}
-              <div className="flex justify-center gap-6 mt-6">
-                <div className="px-6 py-3 bg-blue-50 rounded-lg text-center">
-                  <p className="text-blue-600 font-semibold">₱ 12,505</p>
-                  <p className="text-sm text-gray-600">Collected</p>
-                </div>
-                <div className="px-6 py-3 bg-red-50 rounded-lg text-center">
-                  <p className="text-red-600 font-semibold">₱ 945</p>
-                  <p className="text-sm text-gray-600">Overdue</p>
-                </div>
-              </div>
+          {filteredRooms.length === 0 && !loading && (
+            <div className="text-center py-8 text-gray-500">
+              No rooms found matching your criteria.
             </div>
-
-          </div>
+          )}
         </main>
       </div>
+
+      {/* Modals */}
+      {isCreateModalOpen && (
+        <CreateRoomModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onRoomCreated={handleCreateRoom}
+        />
+      )}
+
+      {isEditModalOpen && selectedRoom && (
+        <EditRoomModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedRoom(null);
+          }}
+          onRoomUpdated={handleEditRoom}
+          room={selectedRoom}
+        />
+      )}
     </div>
   );
 };
 
-export default Dashboard;
+export default StaffRooms;

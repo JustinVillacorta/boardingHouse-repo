@@ -24,7 +24,12 @@ import ProfilePage from './features/tenant-profile/presentation/pages/ProfilePag
 import TenantReportsPage from './features/reports/presentation/pages/TenantReportsPage';
 
 {/* Staff Path*/}
-import StaffFrame from './view_pages/staff/staffFrame';
+import StaffDashboard from './view_pages/staff/staffDashboard';
+import StaffUsers from './view_pages/staff/staffUsers';
+import StaffRooms from './view_pages/staff/staffRooms';
+import StaffPayment from './view_pages/staff/staffPayment';
+import StaffReports from './view_pages/staff/staffReports';
+import StaffNotifications from './view_pages/staff/staffNotifications';
 
 
 const App: React.FC = () => {
@@ -94,9 +99,35 @@ const App: React.FC = () => {
           </Route>
 
           {/* Staff routes */}
-          <Route path="/staff" element={
+          <Route path="/staff" element={<Navigate to="/staff-dashboard" replace />} />
+          <Route path="/staff-dashboard" element={
             <ProtectedRoute requiredRole="staff">
-              <StaffFrame />
+              <StaffDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/staff-users" element={
+            <ProtectedRoute requiredRole="staff">
+              <StaffUsers />
+            </ProtectedRoute>
+          } />
+          <Route path="/staff-rooms" element={
+            <ProtectedRoute requiredRole="staff">
+              <StaffRooms />
+            </ProtectedRoute>
+          } />
+          <Route path="/staff-payment" element={
+            <ProtectedRoute requiredRole="staff">
+              <StaffPayment />
+            </ProtectedRoute>
+          } />
+          <Route path="/staff-reports" element={
+            <ProtectedRoute requiredRole="staff">
+              <StaffReports />
+            </ProtectedRoute>
+          } />
+          <Route path="/staff-notifications" element={
+            <ProtectedRoute requiredRole="staff">
+              <StaffNotifications />
             </ProtectedRoute>
           } />
           

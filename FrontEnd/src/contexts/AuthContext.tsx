@@ -26,7 +26,6 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (userData: Partial<User>) => Promise<void>;
-  refreshToken: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -65,7 +64,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           await validateToken();
         } catch (error) {
           console.error('Error initializing auth:', error);
-          clearAuth();
+          // Don't clear auth immediately, let validateToken handle it
         }
       }
       setIsLoading(false);
@@ -78,7 +77,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     if (token) {
       const interval = setInterval(() => {
-        refreshToken().catch(console.error);
+        validateToken().catch(console.error);
       }, 30 * 60 * 1000); // 30 minutes
 
       return () => clearInterval(interval);
@@ -95,15 +94,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const validateToken = async () => {
     try {
       const response = await apiService.request('/auth/validate-token');
-      if (response.success && response.data.user) {
-        setUser(response.data.user);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      if (response.success && response.data) {
+        // Token is valid, update user data if needed
+        const userData = response.data;
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        return true;
       } else {
+        console.log('Token validation failed: Invalid response');
+        clearAuth();
+        return false;
+      }
+    } catch (error: any) {
+      console.error('Token validation failed:', error);
+      // Only clear auth if it's a 401 (unauthorized) or 403 (forbidden)
+      if (error.message?.includes('401') || error.message?.includes('403') || error.message?.includes('Unauthorized')) {
         clearAuth();
       }
-    } catch (error) {
-      console.error('Token validation failed:', error);
-      clearAuth();
+      return false;
     }
   };
 
@@ -161,27 +169,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const refreshToken = async (): Promise<void> => {
-    try {
-      const response = await apiService.request('/auth/refresh-token', {
-        method: 'POST',
-      });
-
-      if (response.success && response.data) {
-        const { token: newToken, user: userData } = response.data;
-        
-        setToken(newToken);
-        setUser(userData);
-        
-        localStorage.setItem('token', newToken);
-        localStorage.setItem('user', JSON.stringify(userData));
-      }
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      clearAuth();
-    }
-  };
-
   const value: AuthContextType = {
     user,
     token,
@@ -190,7 +177,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     updateProfile,
-    refreshToken,
   };
 
   return (

@@ -189,10 +189,21 @@ class AuthController {
     }
   }
 
-  // Get all users (admin only)
+  // Get all users (admin gets all, staff gets only tenants)
   async getAllUsers(req, res) {
     try {
-      const users = await authService.getAllUsers();
+      let users;
+      
+      if (req.user.role === 'admin') {
+        // Admin can see all users
+        users = await authService.getAllUsers();
+      } else if (req.user.role === 'staff') {
+        // Staff can only see tenant users
+        users = await authService.getUsersByRole('tenant');
+      } else {
+        return sendUnauthorized(res, 'Access denied. Admin or Staff role required.');
+      }
+      
       return sendSuccess(res, 'Users retrieved successfully', users);
     } catch (error) {
       console.error('Get all users error:', error);

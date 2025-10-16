@@ -17,6 +17,7 @@ interface EditUserModalProps {
   onClose: () => void;
   onUserUpdated: () => void;
   user: User | null;
+  currentUserRole?: 'admin' | 'staff' | 'tenant';
 }
 
 interface EditFormData {
@@ -54,7 +55,8 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
   isOpen, 
   onClose, 
   onUserUpdated, 
-  user 
+  user,
+  currentUserRole = 'admin'
 }) => {
   const [formData, setFormData] = useState<EditFormData>({
     username: '',
@@ -405,18 +407,20 @@ const EditUserModal: React.FC<EditUserModalProps> = ({
                   <Users className="w-4 h-4" />
                   Tenant
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleRoleChange('staff')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                    formData.role === 'staff'
-                      ? 'bg-blue-50 border-blue-500 text-blue-700'
-                      : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <User className="w-4 h-4" />
-                  Staff
-                </button>
+                {currentUserRole === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => handleRoleChange('staff')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                      formData.role === 'staff'
+                        ? 'bg-blue-50 border-blue-500 text-blue-700'
+                        : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <User className="w-4 h-4" />
+                    Staff
+                  </button>
+                )}
               </div>
             </div>
 

@@ -16,7 +16,7 @@ import {
   DoorOpen as DoorIcon
 } from 'lucide-react';
 import { useAuth } from "../../contexts/AuthContext";
-import CreateUserModal from "../../components/CreateUserModal";
+import CreateUserModalStaff from "../../components/CreateUserModalStaff";
 import EditUserModal from "../../components/EditUserModal";
 import ArchiveUserDialog from "../../components/ArchiveUserDialog";
 import apiService from "../../services/apiService";
@@ -62,16 +62,15 @@ const TopNavbar: React.FC = () => {
       <div className="flex items-center justify-between h-10">
         {/* Left: Logo/Title */}
         <div
-          onClick={() => navigate("/main")}
+          onClick={() => navigate("/staff-dashboard")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
             Users
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            Manage system users and permissions
+            Manage tenant users and permissions
           </p>
         </div>
-
 
         {/* Right */}
         <div className="flex items-center space-x-4">
@@ -122,7 +121,6 @@ const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>
@@ -134,27 +132,27 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const handleLogout = async () => {
     try {
       await logout();
       setShowLogoutConfirm(false);
-      navigate("/sign-in");
+      navigate("/sign-in", { replace: true });
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('Logout error:', error);
       setShowLogoutConfirm(false);
-      navigate("/sign-in");
+      navigate("/sign-in", { replace: true });
     }
   };
 
   const navigationItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/main" },
-    { name: "Users", icon: User, path: "/main-projects" },
-    { name: "Rooms", icon: DoorOpen, path: "/rooms" },
-    { name: "Payment", icon: PhilippinePeso, path: "/work-logs" },
-    { name: "Reports", icon: Wrench, path: "/performance" },
-    { name: "Notifications", icon: BellDot, path: "/notifications" },
+    { name: "Dashboard", icon: LayoutDashboard, path: "/staff-dashboard" },
+    { name: "Users", icon: User, path: "/staff-users" },
+    { name: "Rooms", icon: DoorOpen, path: "/staff-rooms" },
+    { name: "Payment", icon: PhilippinePeso, path: "/staff-payment" },
+    { name: "Reports", icon: Wrench, path: "/staff-reports" },
+    { name: "Notifications", icon: BellDot, path: "/staff-notifications" },
     { name: "Logout", icon: LogOut, action: () => setShowLogoutConfirm(true) },
   ];
 
@@ -190,11 +188,11 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.username ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase() : 'U'}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -209,12 +207,11 @@ const Sidebar: React.FC = () => {
                   fill="#c62525ff" />
                 </svg>
                 <div className="text-s text-medium font-semibold">
-                  <span>Admin</span>
+                  <span>Staff</span>
                 </div>
               </div>
             </div>
           </div>
-
         </div>
         
         <nav className="mt-6">
@@ -267,8 +264,8 @@ const Sidebar: React.FC = () => {
   );
 };
 
-// Project Performance Component
-const UserMain: React.FC = () => {
+// Staff User Management Component
+const StaffUsers: React.FC = () => {
   const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -290,16 +287,16 @@ const UserMain: React.FC = () => {
       const response = await apiService.getUsers();
       
       if (response.success && response.data) {
-        // Filter out admin users and only show staff and tenant users
-        const filteredUsers = response.data.filter((user: User) => 
-          user.role === 'staff' || user.role === 'tenant'
+        // Filter to only show tenant users (staff can only manage tenants)
+        const tenantUsers = response.data.filter((user: User) => 
+          user.role === 'tenant'
         );
         
         // Debug logging
-        console.log('=== FRONTEND DEBUG: Users Data ===');
+        console.log('=== FRONTEND DEBUG: Staff Users Data ===');
         console.log('Raw response:', response);
-        console.log('Filtered users:', filteredUsers);
-        filteredUsers.forEach((user: User) => {
+        console.log('Tenant users:', tenantUsers);
+        tenantUsers.forEach((user: User) => {
           console.log(`User ${user.username}:`, {
             role: user.role,
             tenant: user.tenant,
@@ -309,19 +306,19 @@ const UserMain: React.FC = () => {
           
           // Special debug for jerie user
           if (user.username === 'jerie') {
-            console.log('=== JERIE USER DEBUG ===');
+            console.log('=== JERIE USER DEBUG (STAFF) ===');
             console.log('Full user object:', user);
             console.log('Tenant object:', user.tenant);
             console.log('Room number:', user.tenant?.roomNumber);
             console.log('Room number type:', typeof user.tenant?.roomNumber);
             console.log('Room number truthy:', !!user.tenant?.roomNumber);
             console.log('Room object:', user.tenant?.room);
-            console.log('========================');
+            console.log('================================');
           }
         });
-        console.log('==================================');
+        console.log('========================================');
         
-        setUsers(filteredUsers);
+        setUsers(tenantUsers);
       } else {
         setError('Failed to fetch users');
       }
@@ -377,8 +374,6 @@ const UserMain: React.FC = () => {
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case 'staff':
-        return "bg-blue-100 text-blue-800 border-blue-200";
       case 'tenant':
         return "bg-purple-100 text-purple-800 border-purple-200";
       default:
@@ -396,9 +391,9 @@ const UserMain: React.FC = () => {
         <div className="w-full p-6"> 
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-800">User Management</h2>
+              <h2 className="text-2xl font-semibold text-gray-800">Tenant Management</h2>
               <p className="text-sm text-gray-600">
-                {users.length} {users.length === 1 ? 'user' : 'users'} found
+                {users.length} {users.length === 1 ? 'tenant' : 'tenants'} found
               </p>
             </div>
             <button 
@@ -406,7 +401,7 @@ const UserMain: React.FC = () => {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-4 h-4"/>
-              Create User
+              Add New Tenant
             </button>
           </div>
 
@@ -417,7 +412,7 @@ const UserMain: React.FC = () => {
               {isLoading && (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <span className="ml-2 text-gray-600">Loading users...</span>
+                  <span className="ml-2 text-gray-600">Loading tenants...</span>
                 </div>
               )}
 
@@ -442,8 +437,8 @@ const UserMain: React.FC = () => {
                   {users.length === 0 ? (
                     <div className="text-center py-12">
                       <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No users found</p>
-                      <p className="text-sm text-gray-500">Create your first user to get started</p>
+                      <p className="text-gray-600">No tenants found</p>
+                      <p className="text-sm text-gray-500">Add your first tenant to get started</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
@@ -510,7 +505,7 @@ const UserMain: React.FC = () => {
                             <button 
                               onClick={() => handleEditUser(user)}
                               className="flex items-center gap-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                              title="Edit User"
+                              title="Edit Tenant"
                             >
                               <SquarePen className="w-4 h-4" />
                               Edit
@@ -518,7 +513,7 @@ const UserMain: React.FC = () => {
                             <button 
                               onClick={() => handleArchiveUser(user)}
                               className="flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                              title="Archive User"
+                              title="Archive Tenant"
                             >
                               <Archive className="w-4 h-4" />
                               Archive
@@ -535,8 +530,8 @@ const UserMain: React.FC = () => {
         </div>
       </div>
 
-      {/* Create User Modal */}
-      <CreateUserModal
+      {/* Create Tenant Modal */}
+      <CreateUserModalStaff
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onUserCreated={handleUserCreated}
@@ -562,4 +557,4 @@ const UserMain: React.FC = () => {
   );
 };
 
-export default UserMain;
+export default StaffUsers;

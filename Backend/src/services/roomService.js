@@ -175,8 +175,8 @@ class RoomService {
         throw new Error('Room is at full capacity or under maintenance');
       }
 
-      // Assign tenant to room
-      await roomRepository.assignTenant(roomId, tenantId, rentAmount);
+      // Assign tenant to room (pass userId instead of tenantId)
+      await roomRepository.assignTenant(roomId, tenant.userId, rentAmount);
 
       // Update tenant's room information
       const updatedTenant = await tenantRepository.update(tenantId, { 
@@ -245,12 +245,12 @@ class RoomService {
       }
 
       // Check if tenant is currently in this room
-      if (!room.currentTenant || room.currentTenant.toString() !== tenantId) {
+      if (!room.currentTenant || room.currentTenant.toString() !== tenant.userId.toString()) {
         throw new Error('Tenant is not currently assigned to this room');
       }
 
-      // Unassign tenant from room
-      await roomRepository.unassignTenant(roomId, tenantId);
+      // Unassign tenant from room (pass userId instead of tenantId)
+      await roomRepository.unassignTenant(roomId, tenant.userId);
 
       // Update tenant's room information
       await tenantRepository.update(tenantId, { 

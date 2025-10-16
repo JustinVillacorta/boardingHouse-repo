@@ -1,6 +1,6 @@
 const express = require('express');
 const authController = require('../controllers/authController');
-const { authenticate, requireAdmin } = require('../middleware/auth');
+const { authenticate, requireAdminOrStaff } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
 const {
   validateRegister,
@@ -25,7 +25,7 @@ router.put('/profile', validateProfileUpdate, authController.updateProfile);
 router.put('/change-password', validatePasswordChange, authController.changePassword);
 router.get('/validate-token', authController.validateToken);
 
-// Admin only routes
-router.get('/users', requireAdmin, authController.getAllUsers);
+// Admin and Staff routes
+router.get('/users', requireAdminOrStaff, authController.getAllUsers);
 
 module.exports = router;

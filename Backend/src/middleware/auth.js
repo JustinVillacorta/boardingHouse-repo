@@ -63,13 +63,25 @@ const requireOwnershipOrStaff = (req, res, next) => {
   }
 
   const userId = req.params.userId || req.params.id;
-  const isOwner = req.user.id === userId;
+  const isOwner = req.user.id.toString() === userId.toString();
   const isStaff = ['admin', 'staff'].includes(req.user.role);
 
+  console.log('=== OWNERSHIP CHECK DEBUG ===');
+  console.log('req.user.id:', req.user.id);
+  console.log('req.user.id type:', typeof req.user.id);
+  console.log('userId:', userId);
+  console.log('userId type:', typeof userId);
+  console.log('isOwner:', isOwner);
+  console.log('isStaff:', isStaff);
+  console.log('req.user.role:', req.user.role);
+  console.log('=============================');
+
   if (!isOwner && !isStaff) {
+    console.log('Access denied - not owner and not staff');
     return sendForbidden(res, 'Access denied');
   }
 
+  console.log('Access granted - calling next()');
   next();
 };
 

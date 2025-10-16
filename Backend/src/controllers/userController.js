@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const tenantService = require('../services/tenantService');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
+const Room = require('../models/Room');
 const {
   sendSuccess,
   sendError,
@@ -111,8 +112,8 @@ class UserController {
     try {
       const { id } = req.params;
       
-      // Check if user has permission (admin can see all, others can only see themselves)
-      if (req.user.role !== 'admin' && req.user.id !== id) {
+      // Check if user has permission (admin/staff can see all, others can only see themselves)
+      if (!['admin', 'staff'].includes(req.user.role) && req.user.id !== id) {
         return sendUnauthorized(res, 'Access denied. You can only view your own profile.');
       }
 
@@ -187,8 +188,8 @@ class UserController {
         });
       }
 
-      if (req.user.role !== 'admin') {
-        return sendUnauthorized(res, 'Access denied. Admin role required.');
+      if (!['admin', 'staff'].includes(req.user.role)) {
+        return sendUnauthorized(res, 'Access denied. Admin or staff role required.');
       }
 
       const { id } = req.params;
@@ -278,6 +279,9 @@ class UserController {
         
         // Update tenant fields if tenant record exists or was just created
         if (tenant) {
+          // Store old room number before updating
+          const oldRoomNumber = tenant.roomNumber;
+          
           if (firstName) tenant.firstName = firstName;
           if (lastName) tenant.lastName = lastName;
           if (phoneNumber) tenant.phoneNumber = phoneNumber;
@@ -287,12 +291,65 @@ class UserController {
           if (province) tenant.province = province;
           if (city) tenant.city = city;
           if (zipCode) tenant.zipCode = zipCode;
-          if (roomNumber) tenant.roomNumber = roomNumber;
+          if (roomNumber !== undefined) tenant.roomNumber = roomNumber;
           if (monthlyRent) tenant.monthlyRent = parseFloat(monthlyRent);
           if (securityDeposit) tenant.securityDeposit = parseFloat(securityDeposit);
           if (idType) tenant.idType = idType;
           if (idNumber) tenant.idNumber = idNumber;
           if (emergencyContact) tenant.emergencyContact = emergencyContact;
+          
+          // Handle room assignment changes
+          if (oldRoomNumber !== tenant.roomNumber) {
+            console.log('=== ROOM ASSIGNMENT DEBUG ===');
+            console.log('Old room number:', oldRoomNumber);
+            console.log('New room number:', tenant.roomNumber);
+            console.log('Tenant ID:', tenant._id);
+            console.log('=============================');
+            
+            try {
+              // Free the old room if it exists
+              if (oldRoomNumber) {
+                console.log('Freeing old room:', oldRoomNumber);
+                const oldRoom = await Room.findOne({ roomNumber: oldRoomNumber });
+                if (oldRoom) {
+                  await oldRoom.unassignTenant(tenant.userId);
+                  console.log('Old room freed successfully');
+                } else {
+                  console.log('Old room not found:', oldRoomNumber);
+                }
+              }
+              
+              // Assign the new room if it exists and is available
+              const newRoomNumber = tenant.roomNumber;
+              if (newRoomNumber) {
+                console.log('Assigning new room:', newRoomNumber);
+                const newRoom = await Room.findOne({ roomNumber: newRoomNumber });
+                if (newRoom) {
+                  console.log('New room found:', newRoom.roomNumber, 'Status:', newRoom.status);
+                  if (newRoom.status === 'occupied' && newRoom.currentTenant && newRoom.currentTenant.toString() !== tenant.userId.toString()) {
+                    console.log('Room already occupied by different tenant');
+                    return sendError(res, `Room ${newRoomNumber} is already occupied`, 400);
+                  }
+                  await newRoom.assignTenant(tenant.userId, tenant.monthlyRent || newRoom.monthlyRent);
+                  console.log('Room assigned successfully');
+                  
+                  // Ensure tenant's roomNumber is set
+                  tenant.roomNumber = newRoom.roomNumber;
+                  console.log('Tenant roomNumber updated to:', tenant.roomNumber);
+                } else {
+                  console.log('New room not found:', newRoomNumber);
+                  return sendError(res, `Room ${newRoomNumber} does not exist`, 400);
+                }
+              } else {
+                // If newRoomNumber is empty/null, clear the tenant's room assignment
+                tenant.roomNumber = null;
+                console.log('Tenant roomNumber cleared (no new room assigned)');
+              }
+            } catch (roomError) {
+              console.error('Room assignment error:', roomError);
+              return sendError(res, `Failed to update room assignment: ${roomError.message}`, 400);
+            }
+          }
           
           await tenant.save();
         }

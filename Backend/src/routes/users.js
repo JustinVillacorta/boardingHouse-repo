@@ -1,7 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const userController = require('../controllers/userController');
-const { authenticate, requireAdmin } = require('../middleware/auth');
+const { authenticate, requireAdmin, requireAdminOrStaff, requireOwnershipOrStaff } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -14,11 +14,11 @@ router.get('/', userController.getAllUsers);
 // GET /api/users/statistics - Get user statistics (admin only)
 router.get('/statistics', userController.getUserStatistics);
 
-// GET /api/users/:id - Get specific user
-router.get('/:id', userController.getUserById);
+// GET /api/users/:id - Get specific user (admin/staff can access any, tenants can access their own)
+router.get('/:id', requireOwnershipOrStaff, userController.getUserById);
 
-// PUT /api/users/:id - Update user (admin only)
-router.put('/:id', [
+// PUT /api/users/:id - Update user (admin/staff can update any, tenants can update their own)
+router.put('/:id', requireOwnershipOrStaff, [
   body('username')
     .optional()
     .isLength({ min: 3, max: 30 })

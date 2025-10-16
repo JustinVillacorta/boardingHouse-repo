@@ -50,7 +50,8 @@ export default function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && user) {
-      const redirectPath = user.role === 'admin' || user.role === 'staff' ? '/main' : 
+      const redirectPath = user.role === 'admin' ? '/main' : 
+                          user.role === 'staff' ? '/staff-dashboard' :
                           user.role === 'tenant' ? '/tenant' : '/main';
       navigate(redirectPath, { replace: true });
     }

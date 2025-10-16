@@ -133,12 +133,15 @@ class ApiService {
       if (!response.ok) {
         // Handle 401 Unauthorized specifically
         if (response.status === 401) {
-          // Token might be expired, clear auth data
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          // Redirect to login if not already on login page
-          if (!window.location.pathname.includes('sign-in')) {
-            window.location.href = '/sign-in';
+          // Only clear auth data if we're not on the validate-token endpoint
+          // This prevents clearing auth during token validation
+          if (!endpoint.includes('/validate-token')) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            // Redirect to login if not already on login page
+            if (!window.location.pathname.includes('sign-in')) {
+              window.location.href = '/sign-in';
+            }
           }
         }
         
