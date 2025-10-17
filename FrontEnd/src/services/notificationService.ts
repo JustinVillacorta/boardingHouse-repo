@@ -196,22 +196,6 @@ class NotificationService {
     }
   }
 
-  // Helper method to get priority color
-  getPriorityColor(priority: string): string {
-    switch (priority) {
-      case 'urgent':
-        return 'text-red-600 bg-red-100';
-      case 'high':
-        return 'text-orange-600 bg-orange-100';
-      case 'medium':
-        return 'text-yellow-600 bg-yellow-100';
-      case 'low':
-        return 'text-green-600 bg-green-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
-  }
-
   // Helper method to get type color
   getTypeColor(type: string): string {
     switch (type) {

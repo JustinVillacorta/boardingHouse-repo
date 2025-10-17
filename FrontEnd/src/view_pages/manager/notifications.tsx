@@ -10,7 +10,6 @@ import {
   LogOut,
   User,
   CheckCircle, 
-  Clock, 
   AlertCircle,
   Plus,
   RotateCcw
@@ -25,7 +24,7 @@ import CreateNotificationModal from "../../components/notifications/CreateNotifi
 
 
 // ✅ Define allowed status keys
-type StatusKey = "all" | "unread" | "read" | "urgent" | "high";
+type StatusKey = "all" | "unread" | "read";
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC<{ 
@@ -234,9 +233,7 @@ const Notifications: React.FC = () => {
   const [stats, setStats] = useState({
     total: 0,
     unread: 0,
-    read: 0,
-    urgent: 0,
-    high: 0
+    read: 0
   });
   const { user } = useAuth();
 
@@ -262,8 +259,6 @@ const Notifications: React.FC = () => {
       total: notificationData.length,
       unread: notificationData.filter(n => n.status === 'unread').length,
       read: notificationData.filter(n => n.status === 'read').length,
-      urgent: notificationData.filter(n => n.priority === 'urgent').length,
-      high: notificationData.filter(n => n.priority === 'high').length,
     };
     setStats(newStats);
   };
@@ -276,8 +271,6 @@ const Notifications: React.FC = () => {
     if (activeFilter !== 'all') {
       if (activeFilter === 'unread' || activeFilter === 'read') {
         filtered = filtered.filter(n => n.status === activeFilter);
-      } else if (activeFilter === 'urgent' || activeFilter === 'high') {
-        filtered = filtered.filter(n => n.priority === activeFilter);
       }
     }
 
@@ -346,16 +339,12 @@ const Notifications: React.FC = () => {
     { key: "all", label: "All Notifications" },
     { key: "unread", label: "Unread" },
     { key: "read", label: "Read" },
-    { key: "urgent", label: "Urgent" },
-    { key: "high", label: "High Priority" },
   ];
 
   const statusCounts: Record<StatusKey, number> = {
     all: stats.total,
     unread: stats.unread,
     read: stats.read,
-    urgent: stats.urgent,
-    high: stats.high,
   };
 
   return (
@@ -406,18 +395,6 @@ const Notifications: React.FC = () => {
                 </div>
                 <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                   <CheckCircle className="w-4 h-4 text-green-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Urgent</p>
-                  <p className="text-2xl font-bold text-orange-600">{stats.urgent}</p>
-                </div>
-                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                  <Clock className="w-4 h-4 text-orange-600" />
                 </div>
               </div>
             </div>

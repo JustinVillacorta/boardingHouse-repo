@@ -12,7 +12,6 @@ export interface Notification {
   message: string;
   type: NotificationType;
   status: NotificationStatus;
-  priority: NotificationPriority;
   metadata?: Record<string, any>;
   expiresAt?: string;
   isExpired?: boolean;
@@ -32,12 +31,9 @@ export type NotificationType =
 
 export type NotificationStatus = 'unread' | 'read';
 
-export type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
-
 export interface NotificationFilters {
   status?: NotificationStatus;
   type?: NotificationType;
-  priority?: NotificationPriority;
   limit?: number;
   skip?: number;
   includeExpired?: boolean;
@@ -49,7 +45,6 @@ export interface NotificationStats {
   unread: number;
   read: number;
   byType: Record<NotificationType, number>;
-  byPriority: Record<NotificationPriority, number>;
 }
 
 export interface CreateNotificationData {
@@ -57,7 +52,6 @@ export interface CreateNotificationData {
   title: string;
   message: string;
   type: NotificationType;
-  priority?: NotificationPriority;
   metadata?: Record<string, any>;
   expiresAt?: string;
 }
@@ -66,7 +60,6 @@ export interface BroadcastNotificationData {
   title: string;
   message: string;
   type: NotificationType;
-  priority?: NotificationPriority;
   metadata?: Record<string, any>;
   expiresAt?: string;
   userIds?: string[];

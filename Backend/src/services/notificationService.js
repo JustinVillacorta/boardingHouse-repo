@@ -229,7 +229,6 @@ class NotificationService {
         title: 'Payment Due',
         message: `Your rent payment of ₱${paymentInfo.amount} is due on ${new Date(paymentInfo.dueDate).toLocaleDateString()}`,
         type: 'payment_due',
-        priority: 'high',
         metadata: {
           paymentId: paymentInfo.paymentId,
           amount: paymentInfo.amount,
@@ -257,7 +256,6 @@ class NotificationService {
         title: 'Report Update',
         message: `Your report "${reportInfo.title}" has been updated to status: ${reportInfo.status}`,
         type: 'report_update',
-        priority: 'medium',
         metadata: {
           reportId: reportInfo.reportId,
           status: reportInfo.status,
@@ -289,7 +287,6 @@ class NotificationService {
       message: notification.message,
       type: notification.type,
       status: notification.status,
-      priority: notification.priority,
       metadata: notification.metadata,
       expiresAt: notification.expiresAt,
       isExpired: notification.isExpired,

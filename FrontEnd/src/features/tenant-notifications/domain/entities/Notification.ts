@@ -8,5 +8,4 @@ export interface Notification {
   timestamp: string;
   isRead: boolean;
   icon: string;
-  priority?: 'low' | 'medium' | 'high';
 }

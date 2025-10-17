@@ -35,7 +35,6 @@ export interface ReportStatistics {
   byStatus: ReportsByStatus;
   byType: ReportsByType;
   averageResolutionTime: number;
-  priorityBreakdown: any[];
   recentReports: RecentReport[];
   monthlyTrends: MonthlyReportTrend[];
 }

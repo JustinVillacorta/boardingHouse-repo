@@ -31,11 +31,7 @@ const NotificationSchema = new mongoose.Schema(
       default: 'unread',
       required: true,
     },
-    priority: {
-      type: String,
-      enum: ['low', 'medium', 'high', 'urgent'],
-      default: 'medium',
-    },
+
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {},

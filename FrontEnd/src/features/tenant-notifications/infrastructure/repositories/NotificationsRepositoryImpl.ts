@@ -14,8 +14,7 @@ export class NotificationsRepositoryImpl implements NotificationsRepository {
         message: "Your rent payment is due in 3 days",
         timestamp: "2 hours ago",
         isRead: false,
-        icon: "dollar-sign",
-        priority: "high"
+        icon: "dollar-sign"
       },
       {
         id: "2",
@@ -24,8 +23,7 @@ export class NotificationsRepositoryImpl implements NotificationsRepository {
         message: "Your faucet repair has been completed",
         timestamp: "14 hours ago",
         isRead: false,
-        icon: "wrench",
-        priority: "medium"
+        icon: "wrench"
       },
       {
         id: "3",
@@ -34,8 +32,7 @@ export class NotificationsRepositoryImpl implements NotificationsRepository {
         message: "Scheduled maintenance in common areas this weekend",
         timestamp: "1 day ago",
         isRead: true,
-        icon: "bell",
-        priority: "low"
+        icon: "bell"
       },
       {
         id: "4",
@@ -44,8 +41,7 @@ export class NotificationsRepositoryImpl implements NotificationsRepository {
         message: "Your rent payment for March has been processed",
         timestamp: "2 days ago",
         isRead: true,
-        icon: "check-circle",
-        priority: "medium"
+        icon: "check-circle"
       },
       {
         id: "5",
@@ -54,8 +50,7 @@ export class NotificationsRepositoryImpl implements NotificationsRepository {
         message: "AC repair has been scheduled for tomorrow at 2 PM",
         timestamp: "3 days ago",
         isRead: true,
-        icon: "calendar",
-        priority: "medium"
+        icon: "calendar"
       }
     ];
   }

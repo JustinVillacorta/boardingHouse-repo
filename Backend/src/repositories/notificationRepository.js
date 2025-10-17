@@ -35,10 +35,6 @@ class NotificationRepository {
         query.type = filters.type;
       }
 
-      if (filters.priority) {
-        query.priority = filters.priority;
-      }
-
       // Exclude expired notifications unless specifically requested
       if (!filters.includeExpired) {
         query.$or = [
@@ -79,10 +75,6 @@ class NotificationRepository {
       
       if (filters.type) {
         query.type = filters.type;
-      }
-
-      if (filters.priority) {
-        query.priority = filters.priority;
       }
 
       if (filters.userId) {
@@ -240,8 +232,7 @@ class NotificationRepository {
             byType: {
               $push: {
                 type: '$type',
-                status: '$status',
-                priority: '$priority'
+                status: '$status'
               }
             }
           }

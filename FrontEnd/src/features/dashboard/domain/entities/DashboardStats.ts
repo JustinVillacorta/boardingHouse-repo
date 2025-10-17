@@ -33,7 +33,6 @@ export interface ReportStats {
 export interface NotificationSummary {
   type: string;
   status: string;
-  priority: string;
 }
 
 export interface NotificationStats {

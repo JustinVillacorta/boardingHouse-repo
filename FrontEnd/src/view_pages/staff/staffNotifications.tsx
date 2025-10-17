@@ -29,7 +29,6 @@ const tasks = [
     title: "Light Bulb",
     description: "Bedroom light bulb needs replacement",
     status: "pending",
-    priority: "high",
     assignee: "Sarah Chen",
     dueDate: "2024-03-15",
     progress: 50,
@@ -39,7 +38,6 @@ const tasks = [
     title: "Air Conditioning",
     description: "AC not cooling properly",
     status: "maintenance",
-    priority: "high",
     assignee: "Mike Johnson",
     dueDate: "2024-03-20",
     progress: 65,
@@ -49,7 +47,6 @@ const tasks = [
     title: "Leaky Faucet",
     description: "Bathroom faucet drips constantly.",
     status: "maintenance",
-    priority: "medium",
     assignee: "Alex Rivera",
     dueDate: "2024-03-25",
     progress: 30,
@@ -59,7 +56,6 @@ const tasks = [
     title: "Loud Noise On Next Room",
     description: "Noise complaint at room 382",
     status: "complaint",
-    priority: "low",
     assignee: "Mia Khalifa",
     dueDate: "2024-03-30",
     progress: 0,
@@ -69,7 +65,6 @@ const tasks = [
     title: "Broken Window",
     description: "I can't close the window",
     status: "completed",
-    priority: "low",
     assignee: "Emma Watson",
     dueDate: "2024-03-30",
     progress: 100,
@@ -325,19 +320,6 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "high":
-      return "border-l-red-500";
-    case "medium":
-      return "border-l-yellow-500";
-    case "low":
-      return "border-l-green-500";
-    default:
-      return "border-l-gray-500";
-  }
-};  
-
 /* -------------------- MAIN REPORT COMPONENT -------------------- */
 const StaffNotifications: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<StatusKey>("all");
@@ -460,7 +442,7 @@ const StaffNotifications: React.FC = () => {
             {filteredTasks.map(task => (
               <div
                 key={task.id}
-                className={`bg-white rounded-lg shadow-sm border-l-4 ${getPriorityColor(task.priority)} p-6 hover:shadow-md transition-shadow`}
+                className={`bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 p-6 hover:shadow-md transition-shadow`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -485,21 +467,6 @@ const StaffNotifications: React.FC = () => {
                       </div>
                     </div>
 
-                  </div>
-
-                  <div className="ml-6 text-right">
-                    <div className="text-sm text-gray-500 mb-2">Priority</div>
-                    <div className="flex flex-col items-end">
-                      <span className={`px-3 py-2 rounded-lg text-sm font-medium border ${
-                        task.priority === 'high' 
-                          ? 'bg-red-50 text-red-800 border-red-200'
-                          : task.priority === 'medium'
-                          ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
-                          : 'bg-green-50 text-green-800 border-green-200'
-                      }`}>
-                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>

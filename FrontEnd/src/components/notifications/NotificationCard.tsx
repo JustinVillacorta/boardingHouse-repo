@@ -43,21 +43,6 @@ const NotificationCard: React.FC<NotificationCardProps> = ({
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "urgent":
-        return "border-l-red-500";
-      case "high":
-        return "border-l-orange-500";
-      case "medium":
-        return "border-l-yellow-500";
-      case "low":
-        return "border-l-green-500";
-      default:
-        return "border-l-gray-500";
-    }
-  };
-
   const getStatusColor = (status: string) => {
     return status === 'unread' 
       ? "bg-blue-50 border-blue-200" 
@@ -105,7 +90,7 @@ const NotificationCard: React.FC<NotificationCardProps> = ({
 
   return (
     <div
-      className={`border rounded-lg shadow-sm border-l-4 ${getPriorityColor(notification.priority)} ${getStatusColor(notification.status)} p-6 hover:shadow-md transition-shadow relative`}
+      className={`border rounded-lg shadow-sm border-l-4 border-l-blue-500 ${getStatusColor(notification.status)} p-6 hover:shadow-md transition-shadow relative`}
     >
       {/* Delete button */}
       <button
@@ -180,23 +165,6 @@ const NotificationCard: React.FC<NotificationCardProps> = ({
               </button>
             </div>
           )}
-        </div>
-
-        <div className="ml-6 text-right">
-          <div className="text-sm text-gray-500 mb-2">Priority</div>
-          <div className="flex flex-col items-end">
-            <span className={`px-3 py-2 rounded-lg text-sm font-medium border ${
-              notification.priority === 'urgent' 
-                ? 'bg-red-50 text-red-800 border-red-200'
-                : notification.priority === 'high'
-                ? 'bg-orange-50 text-orange-800 border-orange-200'
-                : notification.priority === 'medium'
-                ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
-                : 'bg-green-50 text-green-800 border-green-200'
-            }`}>
-              {notification.priority.charAt(0).toUpperCase() + notification.priority.slice(1)}
-            </span>
-          </div>
         </div>
       </div>
     </div>

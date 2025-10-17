@@ -1,7 +1,6 @@
 const express = require('express');
 const tenantController = require('../controllers/tenantController');
 const { authenticate, requireAdmin, requireAdminOrStaff } = require('../middleware/auth');
-const { authLimiter } = require('../middleware/rateLimiter');
 const {
   validateTenantRegister,
   validateTenantCreate,
@@ -12,7 +11,7 @@ const {
 const router = express.Router();
 
 // Public route for tenant registration
-router.post('/register', authLimiter, validateTenantRegister, tenantController.registerTenant);
+router.post('/register', validateTenantRegister, tenantController.registerTenant);
 
 // All other tenant routes require authentication
 router.use(authenticate);

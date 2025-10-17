@@ -41,12 +41,11 @@ class NotificationController {
   async getUserNotifications(req, res) {
     try {
       const userId = req.user.id;
-      const { status, type, priority, limit, skip, includeExpired } = req.query;
+      const { status, type, limit, skip, includeExpired } = req.query;
 
       const filters = {
         status,
         type,
-        priority,
         limit,
         skip,
         includeExpired: includeExpired === 'true',
@@ -70,13 +69,12 @@ class NotificationController {
   // GET /api/notifications/all - Get all notifications (admin/staff only)
   async getAllNotifications(req, res) {
     try {
-      const { userId, status, type, priority, limit, skip, search, includeExpired } = req.query;
+      const { userId, status, type, limit, skip, search, includeExpired } = req.query;
 
       const filters = {
         userId,
         status,
         type,
-        priority,
         limit,
         skip,
         search,

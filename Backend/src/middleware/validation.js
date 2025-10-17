@@ -980,11 +980,6 @@ const validateNotificationCreate = [
     .isIn(['payment_due', 'report_update', 'system_alert', 'maintenance', 'announcement', 'lease_reminder', 'other'])
     .withMessage('Type must be one of: payment_due, report_update, system_alert, maintenance, announcement, lease_reminder, other'),
   
-  body('priority')
-    .optional()
-    .isIn(['low', 'medium', 'high', 'urgent'])
-    .withMessage('Priority must be one of: low, medium, high, urgent'),
-  
   body('metadata')
     .optional()
     .isObject()
@@ -1045,11 +1040,6 @@ const validateNotificationBroadcast = [
   body('type')
     .isIn(['payment_due', 'report_update', 'system_alert', 'maintenance', 'announcement', 'lease_reminder', 'other'])
     .withMessage('Type must be one of: payment_due, report_update, system_alert, maintenance, announcement, lease_reminder, other'),
-  
-  body('priority')
-    .optional()
-    .isIn(['low', 'medium', 'high', 'urgent'])
-    .withMessage('Priority must be one of: low, medium, high, urgent'),
   
   body('metadata')
     .optional()

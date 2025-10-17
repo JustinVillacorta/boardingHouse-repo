@@ -4,7 +4,6 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const config = require('./config/config');
 const routes = require('./routes');
-const { generalLimiter } = require('./middleware/rateLimiter');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
 const app = express();
@@ -63,9 +62,6 @@ if (config.NODE_ENV === 'development') {
 } else {
   app.use(morgan('combined'));
 }
-
-// Rate limiting
-app.use(generalLimiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
