@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { X, Wifi, Tv, BookOpen, Bath, Wind, Eye, Refrigerator, Shirt, Bed, ChefHat, ShirtIcon } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { X, Wifi, Tv, BookOpen, Bath, Wind, Eye, Refrigerator, Shirt, Bed, ChefHat, ShirtIcon, AlertCircle, CheckCircle } from 'lucide-react';
 import type { CreateRoomRequest } from '../../domain/entities/Room';
+import { roomValidationRules, validateField, validateForm, sanitizeInput } from '../../../../utils/validation';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface FormData {
   
   // Pricing Information
   monthlyRent: number;
+  securityDeposit: number;
   
   // Room Amenities
   amenities: string[];
@@ -36,6 +38,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
     capacity: 1,
     status: 'available',
     monthlyRent: 0,
+    securityDeposit: 0,
     amenities: [],
     description: '',
     floor: 1,
@@ -45,6 +48,35 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touchedFields, setTouchedFields] = useState<Record<string, boolean>>({});
+  const [validFields, setValidFields] = useState<Record<string, boolean>>({});
+
+  // Clear form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log('Clearing form for new room creation');
+      setFormData({
+        roomNumber: '',
+        roomType: 'single',
+        capacity: 1,
+        status: 'available',
+        monthlyRent: 0,
+        securityDeposit: 0,
+        amenities: [],
+        description: '',
+        floor: 1,
+        area: 0,
+      });
+      
+      // Clear validation states
+      setFieldErrors({});
+      setTouchedFields({});
+      setValidFields({});
+      setError(null);
+      setSuccess(null);
+    }
+  }, [isOpen]);
 
   const predefinedAmenities = [
     { name: 'Wifi', icon: Wifi },
@@ -60,30 +92,112 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
     { name: 'Laundry Access', icon: ShirtIcon },
   ];
 
+  // Real-time field validation
+  const validateSingleField = useCallback((fieldName: string, value: any) => {
+    const rules = roomValidationRules[fieldName];
+    if (!rules) return;
+
+    const result = validateField(value, rules, fieldName);
+    
+    setFieldErrors(prev => ({
+      ...prev,
+      [fieldName]: result.error || ''
+    }));
+
+    setValidFields(prev => ({
+      ...prev,
+      [fieldName]: result.isValid
+    }));
+
+    return result.isValid;
+  }, []);
+
+  // Mark field as touched when user interacts with it
+  const markFieldAsTouched = useCallback((fieldName: string) => {
+    setTouchedFields(prev => ({
+      ...prev,
+      [fieldName]: true
+    }));
+  }, []);
+
+  // Get error message for a field (only show if touched)
+  const getFieldError = useCallback((fieldName: string) => {
+    return touchedFields[fieldName] ? fieldErrors[fieldName] : '';
+  }, [touchedFields, fieldErrors]);
+
+  // Get field validation state for styling
+  const getFieldValidationState = useCallback((fieldName: string) => {
+    if (!touchedFields[fieldName]) return 'default';
+    return validFields[fieldName] ? 'valid' : 'invalid';
+  }, [touchedFields, validFields]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    
+    // Sanitize input
+    const sanitizedValue = sanitizeInput(value);
+    
+    // Convert to appropriate type
+    const processedValue = name === 'capacity' || name === 'monthlyRent' || name === 'securityDeposit' || name === 'floor' || name === 'area' 
+      ? Number(sanitizedValue) || 0 
+      : sanitizedValue;
+
+    // Update form data
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'capacity' || name === 'monthlyRent' || name === 'floor' || name === 'area' 
-        ? Number(value) || 0 
-        : value
+      [name]: processedValue
     }));
+
+    // Mark field as touched
+    markFieldAsTouched(name);
+
+    // Validate field in real-time
+    validateSingleField(name, processedValue);
+
+    // Clear any global error when user makes changes
+    if (error) setError(null);
   };
 
   const handleAmenityToggle = (amenity: string) => {
+    const newAmenities = formData.amenities.includes(amenity)
+      ? formData.amenities.filter(a => a !== amenity)
+      : [...formData.amenities, amenity];
+
     setFormData(prev => ({
       ...prev,
-      amenities: prev.amenities.includes(amenity)
-        ? prev.amenities.filter(a => a !== amenity)
-        : [...prev.amenities, amenity]
+      amenities: newAmenities
     }));
+
+    // Mark amenities field as touched and validate
+    markFieldAsTouched('amenities');
+    validateSingleField('amenities', newAmenities);
   };
 
-  const validateForm = (): string | null => {
-    if (!formData.roomNumber.trim()) return 'Room number is required';
-    if (formData.capacity < 1) return 'Capacity must be at least 1';
-    if (formData.monthlyRent <= 0) return 'Monthly rent must be greater than 0';
-    return null;
+  const validateFormData = (): { isValid: boolean; firstError?: string } => {
+    const result = validateForm(formData, roomValidationRules);
+    
+    // Update all field errors
+    setFieldErrors(result.errors);
+    
+    // Mark all fields as touched to show errors
+    const allFieldNames = Object.keys(roomValidationRules);
+    const touchedState: Record<string, boolean> = {};
+    allFieldNames.forEach(fieldName => {
+      touchedState[fieldName] = true;
+    });
+    setTouchedFields(touchedState);
+
+    // Update valid fields state
+    const validState: Record<string, boolean> = {};
+    allFieldNames.forEach(fieldName => {
+      validState[fieldName] = !result.errors[fieldName];
+    });
+    setValidFields(validState);
+
+    return {
+      isValid: result.isValid,
+      firstError: result.firstError
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,9 +208,9 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
       return;
     }
     
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    const validation = validateFormData();
+    if (!validation.isValid) {
+      setError(validation.firstError || 'Please fix the errors above');
       return;
     }
 
@@ -106,11 +220,11 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
 
     try {
       const roomData: CreateRoomRequest = {
-        roomNumber: formData.roomNumber,
+        roomNumber: formData.roomNumber.trim(),
         roomType: formData.roomType,
         capacity: formData.capacity,
         monthlyRent: formData.monthlyRent,
-        description: formData.description || undefined,
+        description: formData.description?.trim() || undefined,
         amenities: formData.amenities,
         floor: formData.floor || undefined,
         area: formData.area || undefined,
@@ -142,13 +256,58 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
       capacity: 1,
       status: 'available',
       monthlyRent: 0,
+      securityDeposit: 0,
       amenities: [],
       description: '',
       floor: 1,
       area: 0,
     });
+    
+    // Reset validation states
+    setFieldErrors({});
+    setTouchedFields({});
+    setValidFields({});
     setError(null);
     setSuccess(null);
+  };
+
+  // Get CSS classes for input fields based on validation state
+  const getInputClasses = (fieldName: string) => {
+    const baseClasses = "w-full px-3 py-2 border rounded-lg focus:outline-none transition-colors";
+    const state = getFieldValidationState(fieldName);
+    
+    switch (state) {
+      case 'valid':
+        return `${baseClasses} border-green-300 focus:ring-2 focus:ring-green-500 focus:border-transparent`;
+      case 'invalid':
+        return `${baseClasses} border-red-300 focus:ring-2 focus:ring-red-500 focus:border-transparent`;
+      default:
+        return `${baseClasses} border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent`;
+    }
+  };
+
+  // Validation feedback component
+  const ValidationFeedback: React.FC<{ fieldName: string }> = ({ fieldName }) => {
+    const error = getFieldError(fieldName);
+    const isValid = touchedFields[fieldName] && validFields[fieldName];
+    
+    if (!touchedFields[fieldName]) return null;
+    
+    return (
+      <div className="mt-1 flex items-center gap-1">
+        {error ? (
+          <>
+            <AlertCircle className="w-4 h-4 text-red-500" />
+            <span className="text-sm text-red-600">{error}</span>
+          </>
+        ) : isValid ? (
+          <>
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span className="text-sm text-green-600">Valid</span>
+          </>
+        ) : null}
+      </div>
+    );
   };
 
   if (!isOpen) return null;
@@ -182,25 +341,32 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Room Number</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Room Number <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="text"
                   name="roomNumber"
                   value={formData.roomNumber}
                   onChange={handleInputChange}
+                  onBlur={() => markFieldAsTouched('roomNumber')}
                   placeholder="e.g., 105-A184"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={getInputClasses('roomNumber')}
                   required
                 />
+                <ValidationFeedback fieldName="roomNumber" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Room Type <span className="text-red-500">*</span>
+                </label>
                 <select
                   name="roomType"
                   value={formData.roomType}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onBlur={() => markFieldAsTouched('roomType')}
+                  className={getInputClasses('roomType')}
                   required
                 >
                   <option value="single">Single</option>
@@ -210,31 +376,40 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
                   <option value="suite">Suite</option>
                   <option value="studio">Studio</option>
                 </select>
+                <ValidationFeedback fieldName="roomType" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Capacity <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="number"
                   name="capacity"
                   value={formData.capacity}
                   onChange={handleInputChange}
+                  onBlur={() => markFieldAsTouched('capacity')}
                   min="1"
+                  max="10"
                   placeholder="Number of beds"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={getInputClasses('capacity')}
                   required
                 />
+                <ValidationFeedback fieldName="capacity" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status <span className="text-red-500">*</span>
+                </label>
                 <select
                   name="status"
                   value={formData.status}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onBlur={() => markFieldAsTouched('status')}
+                  className={getInputClasses('status')}
                   required
                 >
                   <option value="available">Available</option>
@@ -243,6 +418,7 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
                   <option value="reserved">Reserved</option>
                   <option value="unavailable">Unavailable</option>
                 </select>
+                <ValidationFeedback fieldName="status" />
               </div>
             </div>
           </div>
@@ -255,20 +431,41 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Rent</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Monthly Rent <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="number"
                   name="monthlyRent"
                   value={formData.monthlyRent}
                   onChange={handleInputChange}
+                  onBlur={() => markFieldAsTouched('monthlyRent')}
                   min="0"
+                  step="0.01"
                   placeholder="e.g., 1350"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={getInputClasses('monthlyRent')}
                   required
                 />
+                <ValidationFeedback fieldName="monthlyRent" />
               </div>
               
-
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Security Deposit
+                </label>
+                <input
+                  type="number"
+                  name="securityDeposit"
+                  value={formData.securityDeposit}
+                  onChange={handleInputChange}
+                  onBlur={() => markFieldAsTouched('securityDeposit')}
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g., 2700"
+                  className={getInputClasses('securityDeposit')}
+                />
+                <ValidationFeedback fieldName="securityDeposit" />
+              </div>
             </div>
           </div>
 
@@ -332,10 +529,12 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
-                placeholder="Additional room description"
+                onBlur={() => markFieldAsTouched('description')}
+                placeholder="Additional room description (optional)"
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={getInputClasses('description')}
               />
+              <ValidationFeedback fieldName="description" />
             </div>
           </div>
 
@@ -353,9 +552,12 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
                   name="floor"
                   value={formData.floor}
                   onChange={handleInputChange}
+                  onBlur={() => markFieldAsTouched('floor')}
                   min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  max="100"
+                  className={getInputClasses('floor')}
                 />
+                <ValidationFeedback fieldName="floor" />
               </div>
               
               <div>
@@ -365,10 +567,12 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
                   name="area"
                   value={formData.area}
                   onChange={handleInputChange}
+                  onBlur={() => markFieldAsTouched('area')}
                   min="0"
                   step="0.1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={getInputClasses('area')}
                 />
+                <ValidationFeedback fieldName="area" />
               </div>
             </div>
           </div>
@@ -376,13 +580,32 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
           {/* Error and Success Messages */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-red-700 text-sm">{error}</p>
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-red-700 text-sm font-medium">Validation Error</p>
+                  <p className="text-red-600 text-sm mt-1">{error}</p>
+                  {Object.keys(fieldErrors).length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-red-600 text-xs">Please check the following fields:</p>
+                      <ul className="list-disc list-inside text-red-600 text-xs mt-1">
+                        {Object.entries(fieldErrors).map(([field, errorMsg]) => (
+                          <li key={field}>{errorMsg}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
           {success && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-green-700 text-sm">{success}</p>
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                <p className="text-green-700 text-sm font-medium">{success}</p>
+              </div>
             </div>
           )}
 
@@ -398,9 +621,20 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onRo
             <button
               type="submit"
               disabled={isLoading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className={`px-6 py-2 rounded-lg transition-colors ${
+                isLoading
+                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
-              {isLoading ? 'Creating...' : 'Save'}
+              {isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Creating...
+                </div>
+              ) : (
+                'Save'
+              )}
             </button>
           </div>
         </form>

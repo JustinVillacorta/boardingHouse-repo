@@ -4,7 +4,12 @@ import type {
   CreateRoomRequest, 
   UpdateRoomRequest, 
   RoomFilters, 
-  RoomStatistics
+  RoomStatistics,
+  MultiTenantAssignmentRequest,
+  RoomTenantSummary,
+  SecurityDepositSummary,
+  SecurityDepositUpdateRequest,
+  SecurityDepositDeductionRequest
 } from '../../domain/entities/Room';
 import apiService from '../../../../services/apiService';
 
@@ -170,6 +175,131 @@ export class RoomsRepositoryImpl implements RoomsRepository {
         data: {} as RoomStatistics,
         message: error instanceof Error ? error.message : 'Failed to get room statistics'
       } as any;
+    }
+  }
+
+  // Multiple tenant management methods
+  async assignTenantsToRoom(roomId: string, tenants: MultiTenantAssignmentRequest): Promise<{ success: boolean; data: Room; message?: string }> {
+    try {
+      const response = await apiService.request(`/rooms/${roomId}/tenants`, {
+        method: 'POST',
+        body: JSON.stringify(tenants)
+      });
+      
+      return {
+        success: (response as any).success || false,
+        data: (response as any).data?.room || (response as any).data,
+        message: (response as any).message
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: {} as Room,
+        message: error instanceof Error ? error.message : 'Failed to assign tenants to room'
+      };
+    }
+  }
+
+  async removeTenantFromRoom(roomId: string, tenantId: string): Promise<{ success: boolean; data: Room; message?: string }> {
+    try {
+      const response = await apiService.request(`/rooms/${roomId}/tenants/${tenantId}`, {
+        method: 'DELETE'
+      });
+      
+      return {
+        success: (response as any).success || false,
+        data: (response as any).data?.room || (response as any).data,
+        message: (response as any).message
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: {} as Room,
+        message: error instanceof Error ? error.message : 'Failed to remove tenant from room'
+      };
+    }
+  }
+
+  async getRoomTenants(roomId: string, includeInactive = false): Promise<{ success: boolean; data: { tenants: RoomTenantSummary[] }; message?: string }> {
+    try {
+      const params = new URLSearchParams();
+      if (includeInactive) params.append('includeInactive', 'true');
+      
+      const url = `/rooms/${roomId}/tenants${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await apiService.request(url);
+      
+      return {
+        success: (response as any).success || false,
+        data: { tenants: (response as any).data?.tenants || [] },
+        message: (response as any).message
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: { tenants: [] },
+        message: error instanceof Error ? error.message : 'Failed to get room tenants'
+      };
+    }
+  }
+
+  // Security deposit management methods
+  async updateSecurityDeposit(roomId: string, tenantId: string, updates: SecurityDepositUpdateRequest): Promise<{ success: boolean; data: Room; message?: string }> {
+    try {
+      const response = await apiService.request(`/rooms/${roomId}/tenants/${tenantId}/security-deposit`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+      
+      return {
+        success: (response as any).success || false,
+        data: (response as any).data?.room || (response as any).data,
+        message: (response as any).message
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: {} as Room,
+        message: error instanceof Error ? error.message : 'Failed to update security deposit'
+      };
+    }
+  }
+
+  async addSecurityDepositDeduction(roomId: string, tenantId: string, deduction: SecurityDepositDeductionRequest): Promise<{ success: boolean; data: Room; message?: string }> {
+    try {
+      const response = await apiService.request(`/rooms/${roomId}/tenants/${tenantId}/security-deposit/deductions`, {
+        method: 'POST',
+        body: JSON.stringify(deduction)
+      });
+      
+      return {
+        success: (response as any).success || false,
+        data: (response as any).data?.room || (response as any).data,
+        message: (response as any).message
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: {} as Room,
+        message: error instanceof Error ? error.message : 'Failed to add security deposit deduction'
+      };
+    }
+  }
+
+  async getRoomSecurityDeposits(roomId: string): Promise<{ success: boolean; data: { securityDeposits: SecurityDepositSummary[] }; message?: string }> {
+    try {
+      const response = await apiService.request(`/rooms/${roomId}/security-deposits`);
+      
+      return {
+        success: (response as any).success || false,
+        data: { securityDeposits: (response as any).data?.securityDeposits || [] },
+        message: (response as any).message
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: { securityDeposits: [] },
+        message: error instanceof Error ? error.message : 'Failed to get security deposits'
+      };
     }
   }
 }

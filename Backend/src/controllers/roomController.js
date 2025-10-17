@@ -390,6 +390,146 @@ class RoomController {
       return sendServerError(res, 'Failed to update room maintenance');
     }
   }
+
+  // POST /api/rooms/:id/tenants - Assign multiple tenants to room (admin/staff)
+  async assignTenantsToRoom(req, res) {
+    try {
+      // Check validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return sendError(res, 'Validation failed', 400, {
+          errors: errors.array(),
+        });
+      }
+
+      const { id } = req.params;
+      const { tenants } = req.body; // Array of tenant assignments
+
+      const room = await roomService.assignMultipleTenantsToRoom(id, tenants);
+      return sendSuccess(res, 'Tenants assigned to room successfully', { room });
+    } catch (error) {
+      console.error('Assign tenants to room error:', error);
+
+      if (error.message === 'Room not found') {
+        return sendNotFound(res, error.message);
+      }
+
+      if (error.message.includes('capacity') || error.message.includes('already assigned')) {
+        return sendError(res, error.message, 409);
+      }
+
+      return sendServerError(res, 'Failed to assign tenants to room');
+    }
+  }
+
+  // DELETE /api/rooms/:id/tenants/:tenantId - Remove tenant from room (admin/staff)
+  async removeTenantFromRoom(req, res) {
+    try {
+      const { id, tenantId } = req.params;
+
+      const room = await roomService.removeTenantFromRoom(id, tenantId);
+      return sendSuccess(res, 'Tenant removed from room successfully', { room });
+    } catch (error) {
+      console.error('Remove tenant from room error:', error);
+
+      if (error.message === 'Room not found' || error.message.includes('not assigned')) {
+        return sendNotFound(res, error.message);
+      }
+
+      return sendServerError(res, 'Failed to remove tenant from room');
+    }
+  }
+
+  // PUT /api/rooms/:id/tenants/:tenantId/security-deposit - Update security deposit (admin/staff)
+  async updateSecurityDeposit(req, res) {
+    try {
+      // Check validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return sendError(res, 'Validation failed', 400, {
+          errors: errors.array(),
+        });
+      }
+
+      const { id, tenantId } = req.params;
+      const securityDepositUpdates = req.body;
+
+      const room = await roomService.updateSecurityDeposit(id, tenantId, securityDepositUpdates);
+      return sendSuccess(res, 'Security deposit updated successfully', { room });
+    } catch (error) {
+      console.error('Update security deposit error:', error);
+
+      if (error.message === 'Room not found' || error.message.includes('not assigned')) {
+        return sendNotFound(res, error.message);
+      }
+
+      return sendServerError(res, 'Failed to update security deposit');
+    }
+  }
+
+  // POST /api/rooms/:id/tenants/:tenantId/security-deposit/deductions - Add security deposit deduction (admin/staff)
+  async addSecurityDepositDeduction(req, res) {
+    try {
+      // Check validation errors
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return sendError(res, 'Validation failed', 400, {
+          errors: errors.array(),
+        });
+      }
+
+      const { id, tenantId } = req.params;
+      const { reason, amount } = req.body;
+
+      const room = await roomService.addSecurityDepositDeduction(id, tenantId, reason, amount);
+      return sendSuccess(res, 'Security deposit deduction added successfully', { room });
+    } catch (error) {
+      console.error('Add security deposit deduction error:', error);
+
+      if (error.message === 'Room not found' || error.message.includes('not found')) {
+        return sendNotFound(res, error.message);
+      }
+
+      return sendServerError(res, 'Failed to add security deposit deduction');
+    }
+  }
+
+  // GET /api/rooms/:id/tenants - Get all tenants in a room (admin/staff)
+  async getRoomTenants(req, res) {
+    try {
+      const { id } = req.params;
+      const includeInactive = req.query.includeInactive === 'true';
+
+      const tenants = await roomService.getRoomTenants(id, includeInactive);
+      return sendSuccess(res, 'Room tenants retrieved successfully', { tenants });
+    } catch (error) {
+      console.error('Get room tenants error:', error);
+
+      if (error.message === 'Room not found') {
+        return sendNotFound(res, error.message);
+      }
+
+      return sendServerError(res, 'Failed to retrieve room tenants');
+    }
+  }
+
+  // GET /api/rooms/:id/security-deposits - Get security deposits summary for room (admin/staff)
+  async getRoomSecurityDeposits(req, res) {
+    try {
+      const { id } = req.params;
+
+      const securityDeposits = await roomService.getRoomSecurityDeposits(id);
+      return sendSuccess(res, 'Room security deposits retrieved successfully', { securityDeposits });
+    } catch (error) {
+      console.error('Get room security deposits error:', error);
+
+      if (error.message === 'Room not found') {
+        return sendNotFound(res, error.message);
+      }
+
+      return sendServerError(res, 'Failed to retrieve room security deposits');
+    }
+  }
 }
 
 module.exports = new RoomController();

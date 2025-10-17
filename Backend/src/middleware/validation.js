@@ -408,6 +408,11 @@ const validateRoomCreate = [
     .isNumeric({ min: 0 })
     .withMessage('Monthly rent must be a positive number'),
   
+  body('defaultSecurityDeposit')
+    .optional()
+    .isNumeric({ min: 0 })
+    .withMessage('Default security deposit must be a positive number'),
+  
   body('description')
     .optional()
     .isLength({ max: 500 })
@@ -463,6 +468,11 @@ const validateRoomUpdate = [
     .isNumeric({ min: 0 })
     .withMessage('Monthly rent must be a positive number'),
   
+  body('defaultSecurityDeposit')
+    .optional()
+    .isNumeric({ min: 0 })
+    .withMessage('Default security deposit must be a positive number'),
+  
   body('description')
     .optional()
     .isLength({ max: 500 })
@@ -506,6 +516,11 @@ const validateRoomTenantAssignment = [
     .optional()
     .isNumeric({ min: 0 })
     .withMessage('Rent amount must be a positive number'),
+  
+  body('securityDepositAmount')
+    .optional()
+    .isNumeric({ min: 0 })
+    .withMessage('Security deposit amount must be a positive number'),
 ];
 
 // Validation rules for tenant unassignment from room
@@ -515,6 +530,56 @@ const validateRoomTenantUnassignment = [
     .withMessage('Tenant ID is required')
     .isMongoId()
     .withMessage('Tenant ID must be a valid MongoDB ObjectId'),
+];
+
+// Validation rules for security deposit update
+const validateSecurityDepositUpdate = [
+  body('tenantId')
+    .notEmpty()
+    .withMessage('Tenant ID is required')
+    .isMongoId()
+    .withMessage('Tenant ID must be a valid MongoDB ObjectId'),
+  
+  body('status')
+    .optional()
+    .isIn(['pending', 'paid', 'refunded', 'forfeited'])
+    .withMessage('Status must be pending, paid, refunded, or forfeited'),
+  
+  body('datePaid')
+    .optional()
+    .isISO8601()
+    .withMessage('Date paid must be a valid date'),
+  
+  body('dateRefunded')
+    .optional()
+    .isISO8601()
+    .withMessage('Date refunded must be a valid date'),
+  
+  body('refundAmount')
+    .optional()
+    .isNumeric({ min: 0 })
+    .withMessage('Refund amount must be a positive number'),
+];
+
+// Validation rules for security deposit deduction
+const validateSecurityDepositDeduction = [
+  body('tenantId')
+    .notEmpty()
+    .withMessage('Tenant ID is required')
+    .isMongoId()
+    .withMessage('Tenant ID must be a valid MongoDB ObjectId'),
+  
+  body('reason')
+    .notEmpty()
+    .withMessage('Deduction reason is required')
+    .isLength({ max: 200 })
+    .withMessage('Deduction reason must be less than 200 characters'),
+  
+  body('amount')
+    .notEmpty()
+    .withMessage('Deduction amount is required')
+    .isNumeric({ min: 0.01 })
+    .withMessage('Deduction amount must be greater than 0'),
 ];
 
 // Validation rules for room maintenance update
@@ -1066,6 +1131,8 @@ module.exports = {
   validateRoomUpdate,
   validateRoomTenantAssignment,
   validateRoomTenantUnassignment,
+  validateSecurityDepositUpdate,
+  validateSecurityDepositDeduction,
   validateRoomMaintenanceUpdate,
   validatePaymentCreate,
   validatePaymentUpdate,

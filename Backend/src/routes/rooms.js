@@ -7,6 +7,8 @@ const {
   validateRoomTenantAssignment,
   validateRoomTenantUnassignment,
   validateRoomMaintenanceUpdate,
+  validateSecurityDepositUpdate,
+  validateSecurityDepositDeduction,
 } = require('../middleware/validation');
 
 const router = express.Router();
@@ -41,13 +43,31 @@ router.get('/', roomController.getAllRooms);
 // GET /api/rooms/:id/history - Get room rental history (admin/staff only)
 router.get('/:id/history', requireAdminOrStaff, roomController.getRoomRentalHistory);
 
+// GET /api/rooms/:id/tenants - Get all tenants in a room (admin/staff only)
+router.get('/:id/tenants', requireAdminOrStaff, roomController.getRoomTenants);
+
+// GET /api/rooms/:id/security-deposits - Get security deposits summary for room (admin/staff only)
+router.get('/:id/security-deposits', requireAdminOrStaff, roomController.getRoomSecurityDeposits);
+
 // PUT /api/rooms/:id/maintenance - Update room maintenance (admin/staff only)
 router.put('/:id/maintenance', requireAdminOrStaff, validateRoomMaintenanceUpdate, roomController.updateRoomMaintenance);
 
-// POST /api/rooms/:id/assign - Assign tenant to room (admin/staff only)
+// POST /api/rooms/:id/tenants - Assign multiple tenants to room (admin/staff only)
+router.post('/:id/tenants', requireAdminOrStaff, roomController.assignTenantsToRoom);
+
+// DELETE /api/rooms/:id/tenants/:tenantId - Remove tenant from room (admin/staff only)
+router.delete('/:id/tenants/:tenantId', requireAdminOrStaff, roomController.removeTenantFromRoom);
+
+// PUT /api/rooms/:id/tenants/:tenantId/security-deposit - Update security deposit (admin/staff only)
+router.put('/:id/tenants/:tenantId/security-deposit', requireAdminOrStaff, validateSecurityDepositUpdate, roomController.updateSecurityDeposit);
+
+// POST /api/rooms/:id/tenants/:tenantId/security-deposit/deductions - Add security deposit deduction (admin/staff only)
+router.post('/:id/tenants/:tenantId/security-deposit/deductions', requireAdminOrStaff, validateSecurityDepositDeduction, roomController.addSecurityDepositDeduction);
+
+// POST /api/rooms/:id/assign - Assign tenant to room (admin/staff only) - Legacy endpoint
 router.post('/:id/assign', requireAdminOrStaff, validateRoomTenantAssignment, roomController.assignTenantToRoom);
 
-// POST /api/rooms/:id/unassign - Remove tenant from room (admin/staff only)
+// POST /api/rooms/:id/unassign - Remove tenant from room (admin/staff only) - Legacy endpoint
 router.post('/:id/unassign', requireAdminOrStaff, validateRoomTenantUnassignment, roomController.unassignTenantFromRoom);
 
 // GET /api/rooms/:id - Get specific room

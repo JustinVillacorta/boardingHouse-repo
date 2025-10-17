@@ -447,6 +447,343 @@ class RoomService {
     return formattedRoom;
   }
 
+  // Assign multiple tenants to room
+  async assignMultipleTenantsToRoom(roomId, tenants) {
+    try {
+      const room = await roomRepository.findById(roomId);
+      if (!room) {
+        throw new Error('Room not found');
+      }
+
+      // Check if room can accommodate new tenants
+      const currentOccupancy = room.currentTenants?.length || 0;
+      const availableSpots = room.capacity - currentOccupancy;
+      
+      if (tenants.length > availableSpots) {
+        throw new Error(`Room can only accommodate ${availableSpots} more tenant(s)`);
+      }
+
+      const tenantAssignments = [];
+      
+      for (const tenantData of tenants) {
+        // Validate tenant exists
+        const tenant = await tenantRepository.findById(tenantData.tenantId);
+        if (!tenant) {
+          throw new Error(`Tenant with ID ${tenantData.tenantId} not found`);
+        }
+
+        // Check if tenant is already assigned to this room
+        const isAlreadyAssigned = room.currentTenants?.some(
+          ct => ct.tenant.toString() === tenant.userId.toString()
+        );
+        
+        if (isAlreadyAssigned) {
+          throw new Error(`Tenant ${tenant.fullName} is already assigned to this room`);
+        }
+
+        // Check if tenant is assigned to another room
+        const tenantCurrentRoom = await roomRepository.findAll({ 
+          'currentTenants.tenant': tenant.userId,
+          page: 1,
+          limit: 1 
+        });
+        
+        if (tenantCurrentRoom.rooms.length > 0) {
+          throw new Error(`Tenant ${tenant.fullName} is already assigned to another room`);
+        }
+
+        tenantAssignments.push({
+          tenant: tenant.userId,
+          assignedDate: new Date(),
+          rentAmount: tenantData.rentAmount || room.monthlyRent,
+          securityDeposit: tenantData.securityDeposit || {}
+        });
+
+        // Update tenant record
+        await tenantRepository.update(tenantData.tenantId, { 
+          roomNumber: room.roomNumber,
+          monthlyRent: tenantData.rentAmount || room.monthlyRent,
+          tenantStatus: 'active'
+        });
+
+        // Create initial payment for the tenant
+        try {
+          const Payment = require('../models/Payment');
+          
+          const leaseStart = new Date(tenant.leaseStartDate || Date.now());
+          const firstDueDate = new Date(leaseStart);
+          firstDueDate.setMonth(firstDueDate.getMonth() + 1);
+          
+          const periodEnd = new Date(leaseStart);
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+          periodEnd.setDate(periodEnd.getDate() - 1);
+          
+          await Payment.create({
+            tenant: tenantData.tenantId,
+            room: roomId,
+            amount: tenantData.rentAmount || room.monthlyRent,
+            paymentType: 'rent',
+            paymentMethod: 'cash',
+            dueDate: firstDueDate,
+            status: 'pending',
+            periodCovered: {
+              startDate: leaseStart,
+              endDate: periodEnd
+            },
+            description: 'Monthly rent payment'
+          });
+        } catch (paymentError) {
+          console.error('Error creating initial payment:', paymentError);
+        }
+      }
+
+      // Add tenants to room
+      const updatedRoom = await roomRepository.updateById(roomId, {
+        $push: { currentTenants: { $each: tenantAssignments } },
+        status: 'occupied'
+      });
+
+      return this.formatRoomResponse(updatedRoom);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Remove tenant from room
+  async removeTenantFromRoom(roomId, tenantId) {
+    try {
+      const room = await roomRepository.findById(roomId);
+      if (!room) {
+        throw new Error('Room not found');
+      }
+
+      const tenant = await tenantRepository.findById(tenantId);
+      if (!tenant) {
+        throw new Error('Tenant not found');
+      }
+
+      // Check if tenant is assigned to this room
+      const tenantAssignment = room.currentTenants?.find(
+        ct => ct.tenant.toString() === tenant.userId.toString()
+      );
+
+      if (!tenantAssignment) {
+        throw new Error('Tenant is not assigned to this room');
+      }
+
+      // Move tenant to rental history
+      const historyRecord = {
+        tenant: tenant.userId,
+        startDate: tenantAssignment.assignedDate,
+        endDate: new Date(),
+        rentAmount: tenantAssignment.rentAmount,
+        securityDeposit: tenantAssignment.securityDeposit
+      };
+
+      // Remove tenant from current tenants and add to history
+      const updatedRoom = await roomRepository.updateById(roomId, {
+        $pull: { currentTenants: { tenant: tenant.userId } },
+        $push: { rentalHistory: historyRecord }
+      });
+
+      // Update room status if no more tenants
+      if (updatedRoom.currentTenants.length === 0) {
+        await roomRepository.updateById(roomId, { status: 'available' });
+      }
+
+      // Update tenant record
+      await tenantRepository.update(tenantId, { 
+        roomNumber: null,
+        tenantStatus: 'inactive'
+      });
+
+      const finalRoom = await roomRepository.findById(roomId);
+      return this.formatRoomResponse(finalRoom);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Update security deposit for a tenant
+  async updateSecurityDeposit(roomId, tenantId, securityDepositUpdates) {
+    try {
+      const room = await roomRepository.findById(roomId);
+      if (!room) {
+        throw new Error('Room not found');
+      }
+
+      const tenant = await tenantRepository.findById(tenantId);
+      if (!tenant) {
+        throw new Error('Tenant not found');
+      }
+
+      // Find tenant in current tenants
+      const tenantIndex = room.currentTenants?.findIndex(
+        ct => ct.tenant.toString() === tenant.userId.toString()
+      );
+
+      if (tenantIndex === -1) {
+        throw new Error('Tenant is not assigned to this room');
+      }
+
+      // Update security deposit
+      const updatePath = `currentTenants.${tenantIndex}.securityDeposit`;
+      const updateData = {};
+      
+      if (securityDepositUpdates.amount !== undefined) {
+        updateData[`${updatePath}.amount`] = securityDepositUpdates.amount;
+      }
+      if (securityDepositUpdates.status !== undefined) {
+        updateData[`${updatePath}.status`] = securityDepositUpdates.status;
+      }
+      if (securityDepositUpdates.notes !== undefined) {
+        updateData[`${updatePath}.notes`] = securityDepositUpdates.notes;
+      }
+
+      const updatedRoom = await roomRepository.updateById(roomId, { $set: updateData });
+      return this.formatRoomResponse(updatedRoom);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Add security deposit deduction
+  async addSecurityDepositDeduction(roomId, tenantId, reason, amount) {
+    try {
+      const room = await roomRepository.findById(roomId);
+      if (!room) {
+        throw new Error('Room not found');
+      }
+
+      const tenant = await tenantRepository.findById(tenantId);
+      if (!tenant) {
+        throw new Error('Tenant not found');
+      }
+
+      // Find tenant in current tenants
+      const tenantIndex = room.currentTenants?.findIndex(
+        ct => ct.tenant.toString() === tenant.userId.toString()
+      );
+
+      if (tenantIndex === -1) {
+        throw new Error('Tenant is not assigned to this room');
+      }
+
+      const deduction = {
+        reason,
+        amount,
+        date: new Date()
+      };
+
+      // Add deduction to security deposit
+      const updatePath = `currentTenants.${tenantIndex}.securityDeposit.deductions`;
+      const updatedRoom = await roomRepository.updateById(roomId, {
+        $push: { [updatePath]: deduction }
+      });
+
+      return this.formatRoomResponse(updatedRoom);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get all tenants in a room
+  async getRoomTenants(roomId, includeInactive = false) {
+    try {
+      const room = await roomRepository.findById(roomId);
+      if (!room) {
+        throw new Error('Room not found');
+      }
+
+      const tenants = [];
+
+      // Get current tenants
+      if (room.currentTenants?.length > 0) {
+        for (const tenantAssignment of room.currentTenants) {
+          const tenant = await tenantRepository.findByUserId(tenantAssignment.tenant);
+          if (tenant) {
+            tenants.push({
+              id: tenant._id,
+              userId: tenant.userId,
+              name: tenant.fullName,
+              email: tenant.email,
+              phoneNumber: tenant.phoneNumber,
+              assignedDate: tenantAssignment.assignedDate,
+              rentAmount: tenantAssignment.rentAmount,
+              securityDeposit: tenantAssignment.securityDeposit,
+              status: 'active'
+            });
+          }
+        }
+      }
+
+      // Get inactive tenants if requested
+      if (includeInactive && room.rentalHistory?.length > 0) {
+        for (const historyRecord of room.rentalHistory) {
+          const tenant = await tenantRepository.findByUserId(historyRecord.tenant);
+          if (tenant) {
+            tenants.push({
+              id: tenant._id,
+              userId: tenant.userId,
+              name: tenant.fullName,
+              email: tenant.email,
+              phoneNumber: tenant.phoneNumber,
+              assignedDate: historyRecord.startDate,
+              endDate: historyRecord.endDate,
+              rentAmount: historyRecord.rentAmount,
+              securityDeposit: historyRecord.securityDeposit,
+              status: 'inactive'
+            });
+          }
+        }
+      }
+
+      return tenants;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Get security deposits summary for a room
+  async getRoomSecurityDeposits(roomId) {
+    try {
+      const room = await roomRepository.findById(roomId);
+      if (!room) {
+        throw new Error('Room not found');
+      }
+
+      const securityDeposits = [];
+
+      // Get current tenants' security deposits
+      if (room.currentTenants?.length > 0) {
+        for (const tenantAssignment of room.currentTenants) {
+          const tenant = await tenantRepository.findByUserId(tenantAssignment.tenant);
+          if (tenant) {
+            const deposit = tenantAssignment.securityDeposit || {};
+            const totalDeductions = deposit.deductions?.reduce((sum, deduction) => sum + deduction.amount, 0) || 0;
+            
+            securityDeposits.push({
+              tenantId: tenant._id,
+              tenantName: tenant.fullName,
+              amount: deposit.amount || 0,
+              status: deposit.status || 'pending',
+              deductions: deposit.deductions || [],
+              totalDeductions,
+              balance: (deposit.amount || 0) - totalDeductions,
+              notes: deposit.notes,
+              dateReceived: deposit.dateReceived,
+              status: 'active'
+            });
+          }
+        }
+      }
+
+      return securityDeposits;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Helper method to validate room data
   validateRoomData(roomData) {
     const errors = [];

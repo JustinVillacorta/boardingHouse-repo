@@ -12,12 +12,16 @@ import {
   BellDot,
   LogOut,
   SquarePen,
-  RotateCcw
+  RotateCcw,
+  Users
 } from 'lucide-react';
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useRooms } from '../hooks/useRooms';
 import CreateRoomModal from '../components/CreateRoomModal';
 import EditRoomModal from '../components/EditRoomModal';
+import RoomTenantsManager from '../components/RoomTenantsManager';
+
+import { RoomsRepositoryImpl } from '../../infrastructure/repositories/RoomsRepositoryImpl';
 import type { CreateRoomRequest, RoomFilters } from '../../domain/entities/Room';
 
 /* -------------------- TOP NAVBAR -------------------- */
@@ -248,9 +252,15 @@ const Sidebar: React.FC = () => {
 const RoomsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isTenantsModalOpen, setIsTenantsModalOpen] = useState(false);
+
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [filters, setFilters] = useState<RoomFilters>({});
   const hasFetchedRef = useRef(false);
+  
+  // Initialize repository instances
+  const roomsRepository = new RoomsRepositoryImpl();
+  // Note: You'll need to create a tenants repository similarly
   
   const { 
     rooms, 
@@ -315,6 +325,17 @@ const RoomsPage: React.FC = () => {
         console.error('Failed to delete room:', error);
       }
     }
+  };
+
+  // New handler functions for tenant management
+  const handleManageTenants = (room: any) => {
+    setSelectedRoom(room);
+    setIsTenantsModalOpen(true);
+  };
+
+  const handleTenantsUpdated = () => {
+    // Refresh the rooms list after tenant changes
+    fetchRooms(filters);
   };
 
   const handleFilterChange = (newFilters: Partial<RoomFilters>) => {
@@ -430,26 +451,76 @@ const RoomsPage: React.FC = () => {
                       <span className="text-sm text-gray-600">Capacity:</span>
                       <span className="text-sm font-medium">{room.capacity || 0} person(s)</span>
                     </div>
+                    
+                    {/* Multiple Tenant Display */}
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Occupancy:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">
+                          {room.currentTenants?.length || room.occupancy?.current || 0}/{room.capacity}
+                        </span>
+                        {(room.currentTenants?.length || room.occupancy?.current || 0) > 0 && (
+                          <Users className="w-4 h-4 text-blue-600" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Show current tenants if any */}
+                    {room.currentTenants && room.currentTenants.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500 mb-1">Current Tenants:</p>
+                        <div className="space-y-1">
+                          {room.currentTenants.slice(0, 2).map((tenantAssignment: any, index: number) => (
+                            <div key={index} className="flex items-center justify-between text-xs">
+                              <span className="text-gray-700 truncate">
+                                {tenantAssignment.tenant?.name || 'Unknown Tenant'}
+                              </span>
+                              <span className="text-gray-500">₱{tenantAssignment.rentAmount}</span>
+                            </div>
+                          ))}
+                          {room.currentTenants.length > 2 && (
+                            <p className="text-xs text-gray-500">
+                              +{room.currentTenants.length - 2} more...
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     {room.description && (
-                      <p className="text-sm text-gray-600">{room.description}</p>
+                      <p className="text-sm text-gray-600 mt-2">{room.description}</p>
                     )}
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditRoom(room)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                    >
-                      <SquarePen className="w-4 h-4" />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteRoom(room._id)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Delete
-                    </button>
+                  <div className="space-y-2">
+                    {/* Primary Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditRoom(room)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                      >
+                        <SquarePen className="w-4 h-4" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleManageTenants(room)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                      >
+                        <Users className="w-4 h-4" />
+                        Tenants
+                      </button>
+                    </div>
+
+                    {/* Secondary Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDeleteRoom(room._id)}
+                        className="flex-1 flex items-center justify-center gap-2 px-2 py-1.5 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -478,6 +549,22 @@ const RoomsPage: React.FC = () => {
         onRoomUpdated={handleRoomUpdated}
         room={selectedRoom}
       />
+
+      {/* Room Tenants Manager Modal */}
+      {selectedRoom && (
+        <RoomTenantsManager
+          room={selectedRoom}
+          isOpen={isTenantsModalOpen}
+          onClose={() => {
+            setIsTenantsModalOpen(false);
+            setSelectedRoom(null);
+          }}
+          onTenantsUpdated={handleTenantsUpdated}
+          roomsRepository={roomsRepository}
+        />
+      )}
+
+
 
 
     </div>

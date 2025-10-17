@@ -19,13 +19,15 @@ class RoomRepository {
   async findById(id) {
     return Room.findById(id)
       .populate('currentTenant', 'firstName lastName fullName phoneNumber email')
+      .populate('currentTenants.tenant', 'firstName lastName fullName phoneNumber email')
       .populate('rentalHistory.tenant', 'firstName lastName fullName');
   }
 
   // Find room by room number
   async findByRoomNumber(roomNumber) {
     return Room.findOne({ roomNumber, isActive: true })
-      .populate('currentTenant', 'firstName lastName fullName phoneNumber email');
+      .populate('currentTenant', 'firstName lastName fullName phoneNumber email')
+      .populate('currentTenants.tenant', 'firstName lastName fullName phoneNumber email');
   }
 
   // Get all rooms with tenant information
@@ -184,6 +186,7 @@ class RoomRepository {
     const [rooms, totalCount] = await Promise.all([
       Room.find(query)
         .populate('currentTenant', 'firstName lastName fullName phoneNumber')
+        .populate('currentTenants.tenant', 'firstName lastName fullName phoneNumber')
         .sort(sort)
         .skip(skip)
         .limit(limit),
@@ -219,7 +222,8 @@ class RoomRepository {
       id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('currentTenant', 'firstName lastName fullName phoneNumber email');
+    ).populate('currentTenant', 'firstName lastName fullName phoneNumber email')
+     .populate('currentTenants.tenant', 'firstName lastName fullName phoneNumber email');
   }
 
   // Delete room by ID (soft delete)
