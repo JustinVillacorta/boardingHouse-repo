@@ -1,34 +1,24 @@
-import React, { useState, useEffect } from 'react'; // Add useEffect
-import { useNavigate, useLocation  } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
-  Search,
-  Plus, 
-  SquarePen,
+  Search, 
+  Plus,
   Bell,
-  X, // Add X icon for closing modal
-  BellDot,
-  DoorOpen,
   LayoutDashboard,
-  LogOut,
-  PhilippinePeso,
   User,
+  DoorOpen,
+  PhilippinePeso,
   Wrench,
+  BellDot,
+  LogOut,
+  SquarePen,
+  RotateCcw
 } from 'lucide-react';
-
-// Update interface to include availability status
-interface RoomData {
-  _id: string;
-  id: number;
-  rooms: string;
-  name: string;
-  rent: string;
-  roomType: string;
-  availabilityStatus: string;    // NEW: Availability status field
-  startDate: string;
-  endDate: string;
-  hasVehicle: boolean;
-  timestamp: string;
-}
+import { useAuth } from "../../contexts/AuthContext";
+import { useRooms } from '../../features/rooms/presentation/hooks/useRooms';
+import CreateRoomModal from '../../features/rooms/presentation/components/CreateRoomModal';
+import EditRoomModal from '../../features/rooms/presentation/components/EditRoomModal';
+import type { CreateRoomRequest, RoomFilters } from '../../features/rooms/domain/entities/Room';
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -36,9 +26,9 @@ const TopNavbar: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const notifications = [
-    { id: 1, text: "Need Better Notifications Design" },
-    { id: 2, text: "Make the Website Responsive" },
-    { id: 3, text: "Fix Bug of Able to go Back to a Page" },
+    { id: 1, text: "Room 101 needs maintenance" },
+    { id: 2, text: "New tenant assigned to Room 205" },
+    { id: 3, text: "Monthly rent collection due" },
   ];
 
   return (
@@ -46,13 +36,13 @@ const TopNavbar: React.FC = () => {
       <div className="flex items-center justify-between h-10">
         {/* Left: Logo/Title */}
         <div
-          onClick={() => navigate("/main")}
+          onClick={() => navigate("/staff-dashboard")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
             Rooms
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            Manage house rooms
+            Manage room inventory and occupancy
           </p>
         </div>
 
@@ -105,29 +95,33 @@ const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>
   );
 };
 
-
 /* -------------------- SIDEBAR -------------------- */
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    }
   };
 
   const navigationItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/staff" },
+    { name: "Dashboard", icon: LayoutDashboard, path: "/staff-dashboard" },
     { name: "Users", icon: User, path: "/staff-users" },
     { name: "Rooms", icon: DoorOpen, path: "/staff-rooms" },
     { name: "Payment", icon: PhilippinePeso, path: "/staff-payment" },
@@ -168,11 +162,11 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.username ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase() : 'U'}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -184,7 +178,7 @@ const Sidebar: React.FC = () => {
                   viewBox="0 0 16 16"
                 >
                   <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"
-                  fill="#4E91C4" />
+                  fill="#c62525ff" />
                 </svg>
                 <div className="text-s text-medium font-semibold">
                   <span>Staff</span>
@@ -192,7 +186,6 @@ const Sidebar: React.FC = () => {
               </div>
             </div>
           </div>
-
         </div>
         
         <nav className="mt-6">
@@ -245,329 +238,76 @@ const Sidebar: React.FC = () => {
   );
 };
 
-
-// Add Room Modal Component
-const AddRoomModal: React.FC<{ isOpen: boolean; onClose: () => void; onRoomAdded: () => void }> = ({ 
-  isOpen, 
-  onClose, 
-  onRoomAdded 
-}) => {
-  const [formData, setFormData] = useState({
-    roomAssignment: '',
-    tenantName: '',        
-    monthlyRent: '',
-    roomType: 'Single',
-    availabilityStatus: 'Vacant',    // NEW: Availability status field
-    leaseStartDate: '',
-    leaseEndDate: '',
-    hasVehicle: false
+const StaffRooms: React.FC = () => {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<RoomFilters>({
+    roomType: undefined,
+    status: undefined,
+    minRent: undefined,
+    maxRent: undefined,
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Prepare data to send to backend
-    const dataToSend = {
-      roomAssignment: formData.roomAssignment,
-      tenantName: formData.tenantName,     
-      monthlyRent: formData.monthlyRent,
-      roomType: formData.roomType,
-      availabilityStatus: formData.availabilityStatus,  // NEW: Include availability status
-      leaseStartDate: formData.leaseStartDate,
-      leaseEndDate: formData.leaseEndDate,
-      hasVehicle: formData.hasVehicle
-    };
+  const {
+    rooms,
+    isLoading: loading,
+    error,
+    createRoom,
+    deleteRoom,
+    fetchRooms,
+  } = useRooms();
 
-    console.log('📤 Sending data to backend:', dataToSend);
-    
-    try {
-      const response = await fetch('http://localhost:5000/api/add-hello', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify(dataToSend)
-      });
-
-      const data = await response.json();
-      console.log('📥 Response from backend:', data);
-      
-      if (data.success) {
-        alert(`✅ ${data.message}\n\nRoom Details:\n- Tenant: ${data.data.name}\n- Room: ${data.data.rooms}\n- Type: ${data.data.roomType}\n- Status: ${data.data.availabilityStatus}\n- Rent: ₱${data.data.rent}\n- Start: ${data.data.startDate}\n- End: ${data.data.endDate}\n- Vehicle: ${formData.hasVehicle ? 'Yes' : 'No'}`);
-        
-        // Reset form and close modal
-        setFormData({
-          roomAssignment: '',
-          tenantName: '',        
-          monthlyRent: '',
-          roomType: 'Single',
-          availabilityStatus: 'Vacant',    // NEW: Reset availability status
-          leaseStartDate: '',
-          leaseEndDate: '',
-          hasVehicle: false
-        });
-        
-        // Refresh the room data
-        onRoomAdded();
-        onClose();
-      } else {
-        alert(`❌ Error: ${data.message}`);
-      }
-    } catch (err) {
-      console.error('❌ Network error:', err);
-      alert('❌ Failed to connect to server');
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({
-        ...prev,
-        [name]: checked
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-semibold text-gray-800">Room Assignment and Lease</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Room Assignment and Tenant Name Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Room Assignment */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Room Assignment
-              </label>
-              <select
-                name="roomAssignment"
-                value={formData.roomAssignment}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
-                required
-              >
-                <option value="">Select Available Room</option>
-                <option value="Room 302">Room 302</option>
-                <option value="Room 115">Room 115</option>
-                <option value="Room 82">Room 82</option>
-                <option value="Room 116">Room 116</option>
-                <option value="Room 305">Room 305</option>
-                <option value="Room 273">Room 273</option>
-              </select>
-            </div>
-
-            {/* Tenant Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tenant Name/s
-              </label>
-              <input
-                type="text"
-                name="tenantName"
-                value={formData.tenantName}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., John Doe"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Monthly Rent and Room Type Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Monthly Rent */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Monthly Rent (₱)
-              </label>
-              <input
-                type="number"
-                name="monthlyRent"
-                value={formData.monthlyRent}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="5800"
-                min="0"
-                step="0.01"
-                required
-              />
-            </div>
-
-            {/* Room Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Room Type
-              </label>
-              <select
-                name="roomType"
-                value={formData.roomType}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
-                required
-              >
-                <option value="Single">Single</option>
-                <option value="Double">Double</option>
-                <option value="Triple">Triple</option>
-              </select>
-            </div>
-          </div>
-
-          {/* NEW: Availability Status and Lease Start Date Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* NEW: Availability Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Availability Status
-              </label>
-              <select
-                name="availabilityStatus"
-                value={formData.availabilityStatus}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
-                required
-              >
-                <option value="Vacant">Vacant</option>
-                <option value="Occupied">Occupied</option>
-              </select>
-            </div>
-
-            {/* Lease Start Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lease Start Date
-              </label>
-              <input
-                type="date"
-                name="leaseStartDate"
-                value={formData.leaseStartDate}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Lease End Date Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Lease End Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lease End Date
-              </label>
-              <input
-                type="date"
-                name="leaseEndDate"
-                value={formData.leaseEndDate}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div></div> {/* Empty div for spacing */}
-          </div>
-
-          {/* Additional Information */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-800 mb-4">Additional Information</h3>
-            <div className="space-y-3">
-              <label className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  name="hasVehicle"
-                  checked={formData.hasVehicle}
-                  onChange={handleInputChange}
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm text-gray-700">Has vehicle requiring parking</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Modal Buttons */}
-          <div className="flex justify-end gap-4 pt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors bg-red-100"
-            >
-              Clear
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Save
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Update the main Rooms component
-const Rooms: React.FC = () => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [roomData, setRoomData] = useState<RoomData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Function to fetch room data from database
-  const fetchRoomData = async () => {
-    try {
-      setLoading(true);
-      console.log('🔍 Fetching room data from database...');
-      
-      const response = await fetch('http://localhost:5000/api/rooms');
-      const data = await response.json();
-      
-      console.log('📥 Fetched data:', data);
-      
-      if (data.success) {
-        setRoomData(data.data);
-        setError(null);
-      } else {
-        setError('Failed to fetch room data');
-        console.error('❌ API Error:', data);
-      }
-    } catch (err) {
-      setError('Network error - Could not connect to server');
-      console.error('❌ Network Error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch data when component mounts
+  // Load rooms on component mount
   useEffect(() => {
-    fetchRoomData();
-  }, []);
+    fetchRooms();
+  }, [fetchRooms]);
 
-  const handleAddRoomClick = () => {
-    setIsModalOpen(true);
+  const handleCreateRoom = async (roomData: CreateRoomRequest) => {
+    try {
+      await createRoom(roomData);
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      console.error('Failed to create room:', error);
+    }
   };
+
+  const handleEditRoom = async () => {
+    if (!selectedRoom) return;
+    
+    try {
+      // The EditRoomModal handles the update internally
+      setIsEditModalOpen(false);
+      setSelectedRoom(null);
+      // Refresh the rooms list
+      fetchRooms();
+    } catch (error) {
+      console.error('Failed to update room:', error);
+    }
+  };
+
+  const handleDeleteRoom = async (roomId: string) => {
+    if (window.confirm('Are you sure you want to delete this room?')) {
+      try {
+        await deleteRoom(roomId);
+      } catch (error) {
+        console.error('Failed to delete room:', error);
+      }
+    }
+  };
+
+  const filteredRooms = rooms.filter(room => {
+    const matchesSearch = room.roomNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         room.roomType.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesFilters = (!filters.roomType || room.roomType === filters.roomType) &&
+                          (!filters.status || room.status === filters.status) &&
+                          (!filters.minRent || room.monthlyRent >= Number(filters.minRent)) &&
+                          (!filters.maxRent || room.monthlyRent <= Number(filters.maxRent));
+    
+    return matchesSearch && matchesFilters;
+  });
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -575,114 +315,154 @@ const Rooms: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 pl-64">
         <TopNavbar />
         
-        <div className="w-full p-6"> 
-          <div className="flex items-center justify-between mb-4">
-            <button 
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              onClick={handleAddRoomClick}
+        {/* Main Content */}
+        <main className="flex-1 p-6 overflow-auto">
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Room Management</h2>
+              <p className="text-gray-600">Manage room inventory and occupancy</p>
+            </div>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <Plus className="w-4 h-4"/>
+              <Plus className="w-4 h-4" />
               Add Room
-            </button>
-            
-            <button 
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              onClick={fetchRoomData}
-            >
-              🔄 Refresh Data
             </button>
           </div>
 
-          {/* Main Content */}
-          <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
-            <div className="flex items-center justify-between mb-6 w-full">
-              <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                
-                {/* Table Header */}
-                <div className="grid grid-cols-7 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
-                  <span>Name</span>
-                  <span>Room Number</span>
-                  <span>Room Type</span>
-                  <span>Availability Status</span>
-                  <span>Monthly Rent (₱)</span>
-                  <span>Start Date</span>
-                  <span>Actions</span>
-                </div>
-
-                {/* Table Content */}
-                <div className="space-y-2">
-                  {loading ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="mt-2 text-gray-500">Loading room data...</p>
-                    </div>
-                  ) : error ? (
-                    <div className="text-center py-8">
-                      <p className="text-red-500">❌ {error}</p>
-                      <button 
-                        onClick={fetchRoomData}
-                        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  ) : roomData.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">No room data found. Add your first room!</p>
-                    </div>
-                  ) : (
-                    roomData.map((room) => {
-                      return (
-                        <div
-                          key={room._id}
-                          className="grid grid-cols-7 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
-                        >
-                          <span className="text-center">{room.name}</span>
-                          <span className="text-center">{room.rooms}</span>
-                          <span className="text-center">{room.roomType || 'Single'}</span>
-                          <span className="text-center">
-                            <span className={`w-24 text-center inline-block px-2 py-1 rounded-full text-sm font-semibold ${
-                                  room.availabilityStatus === "Vacant"    // NEW: Use actual availability status from database
-                                    ? "bg-yellow-200 text-black"
-                                    : "bg-green-200 text-black"
-                                }`} 
-                            >
-                              {room.availabilityStatus || 'Vacant'}  {/* NEW: Display actual status */}
-                            </span>
-                          </span>
-                          <span className="text-center">₱{room.rent}</span>
-                          <span className="text-center">{room.startDate}</span>
-                          <span className="flex justify-center">
-                            <button>
-                              <SquarePen className="w-5 h-5 text-black hover:text-gray-600" />
-                            </button>
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-                
-                {/* Database Info */}
-                {roomData.length > 0 && (
-                  <div className="mt-4 text-sm text-gray-500 text-center">
-                    📊 Showing {roomData.length} room(s) from MongoDB • Database: boardmate • Collection: rooms_management
-                  </div>
-                )}
+          {/* Search and Filters */}
+          <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
+            <div className="flex gap-4 items-center">
+              <div className="flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search rooms..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
+              <select
+                value={filters.roomType || ""}
+                onChange={(e) => setFilters(prev => ({ ...prev, roomType: e.target.value as any || undefined }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">All Types</option>
+                <option value="single">Single</option>
+                <option value="double">Double</option>
+                <option value="suite">Suite</option>
+              </select>
+              <select
+                value={filters.status || ""}
+                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any || undefined }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">All Status</option>
+                <option value="available">Available</option>
+                <option value="occupied">Occupied</option>
+                <option value="maintenance">Maintenance</option>
+              </select>
             </div>
-          </main>
-        </div>
+          </div>
+
+          {/* Rooms Grid */}
+          {loading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : error ? (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredRooms.map((room) => (
+                <div key={room._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Room {room.roomNumber}</h3>
+                      <p className="text-sm text-gray-600 capitalize">{room.roomType}</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      room.status === 'available' ? 'bg-green-100 text-green-800' :
+                      room.status === 'occupied' ? 'bg-blue-100 text-blue-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {room.status}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 mb-4">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Monthly Rent:</span>
+                      <span className="text-sm font-medium">₱{room.monthlyRent.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Capacity:</span>
+                      <span className="text-sm font-medium">{room.capacity} person(s)</span>
+                    </div>
+                    {room.description && (
+                      <p className="text-sm text-gray-600">{room.description}</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedRoom(room);
+                        setIsEditModalOpen(true);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                    >
+                      <SquarePen className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleDeleteRoom(room._id)}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {filteredRooms.length === 0 && !loading && (
+            <div className="text-center py-8 text-gray-500">
+              No rooms found matching your criteria.
+            </div>
+          )}
+        </main>
       </div>
 
-      {/* Add Room Modal */}
-      <AddRoomModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)}
-        onRoomAdded={fetchRoomData}
-      />
+      {/* Modals */}
+      {isCreateModalOpen && (
+        <CreateRoomModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onRoomCreated={handleCreateRoom}
+        />
+      )}
+
+      {isEditModalOpen && selectedRoom && (
+        <EditRoomModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedRoom(null);
+          }}
+          onRoomUpdated={handleEditRoom}
+          room={selectedRoom}
+        />
+      )}
     </div>
   );
 };
 
-export default Rooms;
+export default StaffRooms;

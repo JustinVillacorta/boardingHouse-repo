@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Search, 
@@ -11,36 +11,40 @@ import {
   Wrench,
   BellDot,
   LogOut,
-  SquarePen
+  SquarePen,
+  Archive,
+  DoorOpen as DoorIcon
 } from 'lucide-react';
+import { useAuth } from "../../contexts/AuthContext";
+import CreateUserModalStaff from "../../components/CreateUserModalStaff";
+import EditUserModal from "../../components/EditUserModal";
+import ArchiveUserDialog from "../../components/ArchiveUserDialog";
+import apiService from "../../services/apiService";
 
-interface Task {
-  id: string;
+interface User {
+  _id: string;
+  username: string;
   email: string;
-  role: string;
-  assignee: string;
-  status: 'Active' | 'Inactive';
-  dateStarted: string;
+  role: 'admin' | 'staff' | 'tenant';
+  isActive: boolean;
+  createdAt: string;
+  lastLogin?: string;
+  tenant?: {
+    firstName: string;
+    lastName: string;
+    phoneNumber: string;
+    roomNumber?: string;
+    tenantStatus: string;
+    monthlyRent?: number;
+    room?: {
+      roomNumber: string;
+      roomType: string;
+      status: string;
+      monthlyRent: number;
+      capacity: number;
+    };
+  };
 }
-
-const SAMPLE_TASKS: Task[] = [
-  {
-    id: '1',
-    email: 'sample@gmail.com',
-    role: 'Staff',
-    assignee: 'Yaoh Ghori',
-    status: 'Active',
-    dateStarted: '2024-01-15'
-  },
-  {
-    id: '2',
-    email: 'sample@gmail.com',
-    role: 'Tenant',
-    assignee: 'Sarah Wilson',
-    status: 'Inactive',
-    dateStarted: '2024-01-15'
-  },
-];
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -58,16 +62,15 @@ const TopNavbar: React.FC = () => {
       <div className="flex items-center justify-between h-10">
         {/* Left: Logo/Title */}
         <div
-          onClick={() => navigate("/main")}
+          onClick={() => navigate("/staff-dashboard")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
             Users
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            Manage system users and permissions
+            Manage tenant users and permissions
           </p>
         </div>
-
 
         {/* Right */}
         <div className="flex items-center space-x-4">
@@ -118,7 +121,6 @@ const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>
@@ -130,16 +132,22 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    }
   };
 
   const navigationItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/staff" },
+    { name: "Dashboard", icon: LayoutDashboard, path: "/staff-dashboard" },
     { name: "Users", icon: User, path: "/staff-users" },
     { name: "Rooms", icon: DoorOpen, path: "/staff-rooms" },
     { name: "Payment", icon: PhilippinePeso, path: "/staff-payment" },
@@ -180,11 +188,11 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.username ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase() : 'U'}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -196,7 +204,7 @@ const Sidebar: React.FC = () => {
                   viewBox="0 0 16 16"
                 >
                   <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"
-                  fill="#4E91C4" />
+                  fill="#c62525ff" />
                 </svg>
                 <div className="text-s text-medium font-semibold">
                   <span>Staff</span>
@@ -256,88 +264,297 @@ const Sidebar: React.FC = () => {
   );
 };
 
-// Project Performance Component
-const UserMain: React.FC = () =>{
+// Staff User Management Component
+const StaffUsers: React.FC = () => {
+  const { user } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-    return (
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0 pl-64">
-            <TopNavbar />
-            
-          {/* ✅ Full width wrapper instead of max-w-7xl */}
-          <div className="w-full p-6"> 
-            <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+  // Fetch users on component mount
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await apiService.getUsers();
+      
+      if (response.success && response.data) {
+        // Filter to only show tenant users (staff can only manage tenants)
+        const tenantUsers = response.data.filter((user: User) => 
+          user.role === 'tenant'
+        );
+        
+        // Debug logging
+        console.log('=== FRONTEND DEBUG: Staff Users Data ===');
+        console.log('Raw response:', response);
+        console.log('Tenant users:', tenantUsers);
+        tenantUsers.forEach((user: User) => {
+          console.log(`User ${user.username}:`, {
+            role: user.role,
+            tenant: user.tenant,
+            roomNumber: user.tenant?.roomNumber,
+            room: user.tenant?.room
+          });
+          
+          // Special debug for jerie user
+          if (user.username === 'jerie') {
+            console.log('=== JERIE USER DEBUG (STAFF) ===');
+            console.log('Full user object:', user);
+            console.log('Tenant object:', user.tenant);
+            console.log('Room number:', user.tenant?.roomNumber);
+            console.log('Room number type:', typeof user.tenant?.roomNumber);
+            console.log('Room number truthy:', !!user.tenant?.roomNumber);
+            console.log('Room object:', user.tenant?.room);
+            console.log('================================');
+          }
+        });
+        console.log('========================================');
+        
+        setUsers(tenantUsers);
+      } else {
+        setError('Failed to fetch users');
+      }
+    } catch (error: any) {
+      setError(error.message || 'Failed to fetch users');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUserCreated = () => {
+    // Refresh the users list after a new user is created
+    fetchUsers();
+  };
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setIsEditModalOpen(true);
+  };
+
+  const handleArchiveUser = (user: User) => {
+    setSelectedUser(user);
+    setIsArchiveDialogOpen(true);
+  };
+
+  const handleUserUpdated = () => {
+    // Refresh the users list after a user is updated
+    fetchUsers();
+    setIsEditModalOpen(false);
+    setSelectedUser(null);
+  };
+
+  const handleUserArchived = () => {
+    // Refresh the users list after a user is archived
+    fetchUsers();
+    setIsArchiveDialogOpen(false);
+    setSelectedUser(null);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getStatusBadgeColor = (isActive: boolean) => {
+    return isActive 
+      ? "bg-green-100 text-green-800 border-green-200" 
+      : "bg-gray-100 text-gray-800 border-gray-200";
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'tenant':
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 pl-64">
+        <TopNavbar />
+        
+        {/* ✅ Full width wrapper instead of max-w-7xl */}
+        <div className="w-full p-6"> 
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-800">Tenant Management</h2>
+              <p className="text-sm text-gray-600">
+                {users.length} {users.length === 1 ? 'tenant' : 'tenants'} found
+              </p>
+            </div>
+            <button 
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
               <Plus className="w-4 h-4"/>
-              New Task
+              Add New Tenant
             </button>
+          </div>
 
-            {/* Projects Content */}
-            <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
-              <div className="flex items-center justify-between mb-6 w-full">
-                {/* ✅ Big Box Wrapper */}
-                <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-                  
-                  {/* ✅ Header Row */}
-                  <div className="grid grid-cols-6 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
-                    <span>Name</span>
-                    <span>Email</span>
-                    <span>Role</span>
-                    <span>Status</span>
-                    <span>Date Started</span>
-                    <span>Actions</span>
-                  </div>
+          {/* Users Content */}
+          <main className="flex-1 overflow-auto">
+            <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm">
+              {/* Loading State */}
+              {isLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-2 text-gray-600">Loading tenants...</span>
+                </div>
+              )}
 
-                  {/* ✅ Task Rows */}
-                  <div className="space-y-2">
-                    {SAMPLE_TASKS.map((task) => (
-                      <div
-                        key={task.id}
-                        className="grid grid-cols-6 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
-                      >
-                        {/* Name */}
-                        <span className="text-center">{task.assignee}</span>
-
-                        {/* Email */}
-                        <span className="text-center">{task.email}</span>
-
-                        {/* Role */}
-                        <span className="text-center">
-                          <span className={`w-24 text-center inline-block px-2 py-1 rounded text-sm font-semibold ${
-                                task.status === "Active"
-                                  ? "bg-blue-400 text-black"
-                                  : "bg-green-400 text-black"
-                              }`} 
-                          >
-                            {task.role}
-                          </span>
-                        </span>
-
-                        {/* Status */}
-                        <span className="text-center">
-                            {task.status}
-                        </span>
-
-                        {/* Time Started */}
-                        <span className="text-center">{task.dateStarted}</span>
-
-                        {/* Actions */}
-                        <span className="flex justify-center">
-                          <button>
-                            <SquarePen className="w-5 h-5 text-black hover:text-gray-600" />
-                          </button>
-                        </span>
-                      </div>
-                    ))}
+              {/* Error State */}
+              {error && (
+                <div className="p-6 text-center">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-700">{error}</p>
+                    <button 
+                      onClick={fetchUsers}
+                      className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Try Again
+                    </button>
                   </div>
                 </div>
-              </div>
-            </main>
+              )}
 
-          </div>
+              {/* Users Cards */}
+              {!isLoading && !error && (
+                <>
+                  {users.length === 0 ? (
+                    <div className="text-center py-12">
+                      <User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">No tenants found</p>
+                      <p className="text-sm text-gray-500">Add your first tenant to get started</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                      {users.map((user, index) => (
+                        <div
+                          key={user._id || `user-${index}`}
+                          className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                        >
+                          {/* User Avatar/Initials */}
+                          <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto mb-4">
+                            <span className="text-white font-semibold text-xl">
+                              {user.username.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+
+                          {/* Username */}
+                          <h3 className="text-lg font-semibold text-gray-800 text-center mb-2">
+                            {user.username}
+                          </h3>
+
+                          {/* Email */}
+                          <p className="text-sm text-gray-600 text-center mb-4">
+                            {user.email}
+                          </p>
+
+                          {/* Role Badge */}
+                          <div className="flex justify-center mb-3">
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${getRoleBadgeColor(user.role)}`}>
+                              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                            </span>
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="flex justify-center mb-3">
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColor(user.isActive)}`}>
+                              {user.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+
+                          {/* Room Number Badge (for tenants) */}
+                          {user.role === 'tenant' && (
+                            <div className="flex justify-center mb-3">
+                              {user.tenant?.roomNumber || user.tenant?.room?.roomNumber ? (
+                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                                  <DoorIcon className="w-3 h-3" />
+                                  Room {user.tenant?.roomNumber || user.tenant?.room?.roomNumber}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                                  <DoorIcon className="w-3 h-3" />
+                                  No Room Assigned
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Date Started */}
+                          <p className="text-xs text-gray-500 text-center mb-4">
+                            Started: {formatDate(user.createdAt)}
+                          </p>
+
+                          {/* Action Buttons */}
+                          <div className="flex justify-center gap-2">
+                            <button 
+                              onClick={() => handleEditUser(user)}
+                              className="flex items-center gap-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                              title="Edit Tenant"
+                            >
+                              <SquarePen className="w-4 h-4" />
+                              Edit
+                            </button>
+                            <button 
+                              onClick={() => handleArchiveUser(user)}
+                              className="flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                              title="Archive Tenant"
+                            >
+                              <Archive className="w-4 h-4" />
+                              Archive
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </main>
         </div>
       </div>
-    );
+
+      {/* Create Tenant Modal */}
+      <CreateUserModalStaff
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUserCreated={handleUserCreated}
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onUserUpdated={handleUserUpdated}
+        user={selectedUser}
+        currentUserRole={user?.role}
+      />
+
+      {/* Archive User Dialog */}
+      <ArchiveUserDialog
+        isOpen={isArchiveDialogOpen}
+        onClose={() => setIsArchiveDialogOpen(false)}
+        onUserArchived={handleUserArchived}
+        user={selectedUser}
+      />
+    </div>
+  );
 };
 
-export default UserMain;
+export default StaffUsers;

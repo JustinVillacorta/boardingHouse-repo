@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, useLocation  } from 'react-router-dom';
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Search, 
   LayoutDashboard,
@@ -17,8 +17,7 @@ import {
   AlertCircle,
   Calendar
 } from 'lucide-react';
-
-
+import { useAuth } from "../../contexts/AuthContext";
 
 // ✅ Define allowed status keys
 type StatusKey = "all" | "completed" | "maintenance" | "complaint" | "pending";
@@ -83,9 +82,9 @@ const TopNavbar: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const notifications = [
-    { id: 1, text: "Need Better Notifications Design" },
-    { id: 2, text: "Make the Website Responsive" },
-    { id: 3, text: "Fix Bug of Able to go Back to a Page" },
+    { id: 1, text: "New notification received" },
+    { id: 2, text: "System maintenance scheduled" },
+    { id: 3, text: "Monthly reminder" },
   ];
 
   return (
@@ -93,16 +92,15 @@ const TopNavbar: React.FC = () => {
       <div className="flex items-center justify-between h-10">
         {/* Left: Logo/Title */}
         <div
-          onClick={() => navigate("/main")}
+          onClick={() => navigate("/staff-dashboard")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
             Notifications
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            View and manage notifications
+            Manage system notifications and alerts
           </p>
         </div>
-
 
         {/* Right */}
         <div className="flex items-center space-x-4">
@@ -153,7 +151,6 @@ const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>
@@ -165,16 +162,22 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    }
   };
 
   const navigationItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/staff" },
+    { name: "Dashboard", icon: LayoutDashboard, path: "/staff-dashboard" },
     { name: "Users", icon: User, path: "/staff-users" },
     { name: "Rooms", icon: DoorOpen, path: "/staff-rooms" },
     { name: "Payment", icon: PhilippinePeso, path: "/staff-payment" },
@@ -215,11 +218,11 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.username ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase() : 'U'}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -231,7 +234,7 @@ const Sidebar: React.FC = () => {
                   viewBox="0 0 16 16"
                 >
                   <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"
-                  fill="#4E91C4" />
+                  fill="#c62525ff" />
                 </svg>
                 <div className="text-s text-medium font-semibold">
                   <span>Staff</span>
@@ -239,7 +242,6 @@ const Sidebar: React.FC = () => {
               </div>
             </div>
           </div>
-
         </div>
         
         <nav className="mt-6">
@@ -337,7 +339,7 @@ const getPriorityColor = (priority: string) => {
 };  
 
 /* -------------------- MAIN REPORT COMPONENT -------------------- */
-const Notifications: React.FC = () => {
+const StaffNotifications: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<StatusKey>("all");
 
   const filteredTasks = tasks.filter((task) => {
@@ -361,153 +363,153 @@ const Notifications: React.FC = () => {
     { key: "pending", label: "Pending" },
   ];
 
-    return (
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0 pl-64">
-            <TopNavbar />
-            
-                {/* Main Content Area */}
-                <main className="flex-1 p-6 overflow-auto">
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 pl-64">
+        <TopNavbar />
+        
+        {/* Main Content Area */}
+        <main className="flex-1 p-6 overflow-auto">
 
-                      {/* Quick Stats */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Total Projects</p>
-                              <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <AlertCircle className="w-4 h-4 text-blue-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Completed</p>
-                              <p className="text-2xl font-bold text-green-600">{statusCounts.completed}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">In Progress</p>
-                              <p className="text-2xl font-bold text-blue-600">{statusCounts['maintenance']}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Play className="w-4 h-4 text-blue-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Overdue</p>
-                              <p className="text-2xl font-bold text-red-600">3</p>
-                            </div>
-                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                              <Clock className="w-4 h-4 text-red-600" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Search and View Controls */}
-                      <div className="flex flex-col mb-6">
-                        {/* Search Bar */}
-                        <div className="flex-1">
-                            <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                placeholder="Search tasks..."
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            </div>
-                        </div>
-                      </div>
-
-                      {/* Status Filter Tabs */}
-                      <div className="flex gap-4 mb-6 border-b border-gray-200">
-                        {filters.map(filter => (
-                          <button
-                            key={filter.key}
-                            onClick={() => setActiveFilter(filter.key)}
-                            className={`pb-3 px-1 border-b-2 font-medium text-sm ${
-                              activeFilter === filter.key
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                          >
-                            {filter.label} ({statusCounts[filter.key]})
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Task List */}
-                      <div className="space-y-4">
-                        {filteredTasks.map(task => (
-                          <div
-                            key={task.id}
-                            className={`bg-white rounded-lg shadow-sm border-l-4 ${getPriorityColor(task.priority)} p-6 hover:shadow-md transition-shadow`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  {getStatusIcon(task.status)}
-                                  <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                    {task.status.replace('-', ' ')}
-                                  </span>
-                                </div>
-
-                                <p className="text-gray-600 mb-4">{task.description}</p>
-
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                                  <div className="flex items-center gap-1">
-                                    <User className="w-4 h-4" />
-                                    <span>{task.assignee}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="w-4 h-4" />
-                                    <span>{task.dueDate}</span>
-                                  </div>
-                                </div>
-
-                              </div>
-
-                              <div className="ml-6 text-right">
-                                <div className="text-sm text-gray-500 mb-2">Progress</div>
-                                <div className="w-32">
-                                  <div className="flex justify-between text-sm mb-1">
-                                    <span className="font-medium">{task.progress}%</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                      style={{ width: `${task.progress}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                </main>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Projects</p>
+                  <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
+                </div>
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-blue-600" />
+                </div>
+              </div>
             </div>
-        </div>
-    );
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Completed</p>
+                  <p className="text-2xl font-bold text-green-600">{statusCounts.completed}</p>
+                </div>
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">In Progress</p>
+                  <p className="text-2xl font-bold text-blue-600">{statusCounts['maintenance']}</p>
+                </div>
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Play className="w-4 h-4 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Overdue</p>
+                  <p className="text-2xl font-bold text-red-600">3</p>
+                </div>
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-red-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search and View Controls */}
+          <div className="flex flex-col mb-6">
+            {/* Search Bar */}
+            <div className="flex-1">
+                <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                    type="text"
+                    placeholder="Search tasks..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                </div>
+            </div>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex gap-4 mb-6 border-b border-gray-200">
+            {filters.map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => setActiveFilter(filter.key)}
+                className={`pb-3 px-1 border-b-2 font-medium text-sm ${
+                  activeFilter === filter.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {filter.label} ({statusCounts[filter.key]})
+              </button>
+            ))}
+          </div>
+
+          {/* Task List */}
+          <div className="space-y-4">
+            {filteredTasks.map(task => (
+              <div
+                key={task.id}
+                className={`bg-white rounded-lg shadow-sm border-l-4 ${getPriorityColor(task.priority)} p-6 hover:shadow-md transition-shadow`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {getStatusIcon(task.status)}
+                      <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                        {task.status.replace('-', ' ')}
+                      </span>
+                    </div>
+
+                    <p className="text-gray-600 mb-4">{task.description}</p>
+
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <User className="w-4 h-4" />
+                        <span>{task.assignee}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        <span>{task.dueDate}</span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <div className="ml-6 text-right">
+                    <div className="text-sm text-gray-500 mb-2">Priority</div>
+                    <div className="flex flex-col items-end">
+                      <span className={`px-3 py-2 rounded-lg text-sm font-medium border ${
+                        task.priority === 'high' 
+                          ? 'bg-red-50 text-red-800 border-red-200'
+                          : task.priority === 'medium'
+                          ? 'bg-yellow-50 text-yellow-800 border-yellow-200'
+                          : 'bg-green-50 text-green-800 border-green-200'
+                      }`}>
+                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+        </main>
+      </div>
+    </div>
+  );
 };
 
-export default Notifications;
+export default StaffNotifications;

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate, useLocation  } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { 
   Search, 
   LayoutDashboard,
@@ -12,68 +12,18 @@ import {
   User,
   CheckCircle, 
   Play, 
-  Pause,
   Clock, 
   AlertCircle,
-  Calendar
+  Calendar,
+  X,
+  ChevronDown
 } from 'lucide-react';
+import { useAuth } from "../../contexts/AuthContext";
+import { useReports } from "../../features/reports";
+import type { ReportStatus } from "../../features/reports/domain/entities/Report";
 
-// ✅ Define allowed status keys
-type StatusKey = "all" | "completed" | "maintenance" | "complaint" | "pending";
-
-/* -------------------- SAMPLE TASK DATA -------------------- */
-const tasks = [
-  {
-    id: 1,
-    title: "Light Bulb",
-    description: "Bedroom light bulb needs replacement",
-    status: "pending",
-    priority: "high",
-    assignee: "Sarah Chen",
-    dueDate: "2024-03-15",
-    progress: 50,
-  },
-  {
-    id: 2,
-    title: "Air Conditioning",
-    description: "AC not cooling properly",
-    status: "maintenance",
-    priority: "high",
-    assignee: "Mike Johnson",
-    dueDate: "2024-03-20",
-    progress: 65,
-  },
-  {
-    id: 3,
-    title: "Leaky Faucet",
-    description: "Bathroom faucet drips constantly.",
-    status: "maintenance",
-    priority: "medium",
-    assignee: "Alex Rivera",
-    dueDate: "2024-03-25",
-    progress: 30,
-  },
-  {
-    id: 4,
-    title: "Loud Noise On Next Room",
-    description: "Noise complaint at room 382",
-    status: "complaint",
-    priority: "low",
-    assignee: "Mia Khalifa",
-    dueDate: "2024-03-30",
-    progress: 0,
-  },
-  {
-    id: 5,
-    title: "Broken Window",
-    description: "I can't close the window",
-    status: "completed",
-    priority: "low",
-    assignee: "Emma Watson",
-    dueDate: "2024-03-30",
-    progress: 100,
-  },
-];
+// ✅ Define allowed status keys - updated to match backend
+type StatusKey = "all" | "resolved" | "in-progress" | "pending" | "rejected";
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -81,9 +31,9 @@ const TopNavbar: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const notifications = [
-    { id: 1, text: "Need Better Notifications Design" },
-    { id: 2, text: "Make the Website Responsive" },
-    { id: 3, text: "Fix Bug of Able to go Back to a Page" },
+    { id: 1, text: "New maintenance request" },
+    { id: 2, text: "Report submitted for Room 205" },
+    { id: 3, text: "Monthly report due" },
   ];
 
   return (
@@ -91,16 +41,15 @@ const TopNavbar: React.FC = () => {
       <div className="flex items-center justify-between h-10">
         {/* Left: Logo/Title */}
         <div
-          onClick={() => navigate("/main")}
+          onClick={() => navigate("/staff-dashboard")}
           className="cursor-pointer flex flex-col items-start ml-5">
           <h1 className="ml-2 text-3xl font-semibold text-gray-800">
             Reports
           </h1>
           <p className="ml-2 text-sm text-gray-400">
-            Generate and view reports
+            Manage maintenance requests and reports
           </p>
         </div>
-
 
         {/* Right */}
         <div className="flex items-center space-x-4">
@@ -151,7 +100,6 @@ const TopNavbar: React.FC = () => {
               </div>
             )}
           </div>
-
         </div>
       </div>
     </header>
@@ -163,16 +111,22 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    }
   };
 
   const navigationItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/staff" },
+    { name: "Dashboard", icon: LayoutDashboard, path: "/staff-dashboard" },
     { name: "Users", icon: User, path: "/staff-users" },
     { name: "Rooms", icon: DoorOpen, path: "/staff-rooms" },
     { name: "Payment", icon: PhilippinePeso, path: "/staff-payment" },
@@ -213,11 +167,11 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.username ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase() : 'U'}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -229,7 +183,7 @@ const Sidebar: React.FC = () => {
                   viewBox="0 0 16 16"
                 >
                   <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"
-                  fill="#4E91C4" />
+                  fill="#c62525ff" />
                 </svg>
                 <div className="text-s text-medium font-semibold">
                   <span>Staff</span>
@@ -237,7 +191,6 @@ const Sidebar: React.FC = () => {
               </div>
             </div>
           </div>
-
         </div>
         
         <nav className="mt-6">
@@ -290,17 +243,140 @@ const Sidebar: React.FC = () => {
   );
 };
 
+/* -------------------- STATUS DROPDOWN COMPONENT -------------------- */
+interface StatusDropdownProps {
+  currentStatus: string;
+  onStatusChange: (newStatus: ReportStatus) => void;
+}
+
+const StatusDropdown: React.FC<StatusDropdownProps> = ({ 
+  currentStatus, 
+  onStatusChange 
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const statusOptions = [
+    { 
+      value: 'pending', 
+      label: 'Pending', 
+      icon: <Clock className="w-4 h-4" />, 
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200',
+      hoverColor: 'hover:bg-orange-100'
+    },
+    { 
+      value: 'in-progress', 
+      label: 'In Progress', 
+      icon: <Play className="w-4 h-4" />, 
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      hoverColor: 'hover:bg-blue-100'
+    },
+    { 
+      value: 'resolved', 
+      label: 'Resolved', 
+      icon: <CheckCircle className="w-4 h-4" />, 
+      color: 'text-green-600',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      hoverColor: 'hover:bg-green-100'
+    },
+    { 
+      value: 'rejected', 
+      label: 'Rejected', 
+      icon: <X className="w-4 h-4" />, 
+      color: 'text-red-600',
+      bgColor: 'bg-red-50',
+      borderColor: 'border-red-200',
+      hoverColor: 'hover:bg-red-100'
+    }
+  ];
+
+  const currentOption = statusOptions.find(option => option.value === currentStatus);
+
+  const handleOptionClick = (status: string) => {
+    onStatusChange(status as ReportStatus);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative" onClick={(e) => e.stopPropagation()}>
+      {/* Dropdown Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`
+          w-full px-3 py-2 rounded-lg border-2 transition-all duration-200
+          flex items-center justify-between gap-2 min-w-[140px]
+          ${currentOption?.bgColor} ${currentOption?.borderColor} ${currentOption?.color}
+          hover:shadow-lg hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50
+          transform active:scale-95
+        `}
+      >
+        <div className="flex items-center gap-2">
+          {currentOption?.icon}
+          <span className="font-semibold text-sm">{currentOption?.label}</span>
+        </div>
+        <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {/* Dropdown Menu */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 z-10" 
+            onClick={() => setIsOpen(false)}
+          />
+          
+          {/* Menu */}
+          <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-200 z-20 overflow-hidden animate-in slide-in-from-top-2 duration-200">
+            <div className="py-1">
+              {statusOptions.map((option, index) => (
+                <button
+                  key={option.value}
+                  onClick={() => handleOptionClick(option.value)}
+                  className={`
+                    w-full px-4 py-3 flex items-center gap-3 text-left transition-all duration-200
+                    ${option.color} ${option.hoverColor}
+                    ${option.value === currentStatus ? `${option.bgColor} font-semibold shadow-sm` : 'hover:bg-gray-50 hover:pl-5'}
+                    ${index === 0 ? 'rounded-t-lg' : ''}
+                    ${index === statusOptions.length - 1 ? 'rounded-b-lg' : ''}
+                    hover:shadow-sm
+                  `}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className={`p-1 rounded-full ${option.bgColor} ${option.borderColor} border`}>
+                    {option.icon}
+                  </div>
+                  <span className="text-sm font-medium">{option.label}</span>
+                  {option.value === currentStatus && (
+                    <div className="ml-auto">
+                      <CheckCircle className="w-4 h-4 opacity-70" />
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 /* -------------------- HELPERS -------------------- */
 const getStatusIcon = (status: string) => {
   switch (status) {
-    case "completed":
+    case "resolved":
       return <CheckCircle className="w-4 h-4 text-green-500" />;
-    case "maintenance":
+    case "in-progress":
       return <Play className="w-4 h-4 text-blue-500" />;
-    case "complaint":
-      return <Pause className="w-4 h-4 text-orange-500" />;
-    case "Pending":
-      return <Clock className="w-4 h-4 text-red-500" />;
+    case "pending":
+      return <Clock className="w-4 h-4 text-orange-500" />;
+    case "rejected":
+      return <X className="w-4 h-4 text-red-500" />;
     default:
       return <AlertCircle className="w-4 h-4 text-gray-500" />;
   }
@@ -308,206 +384,280 @@ const getStatusIcon = (status: string) => {
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case "completed":
+    case "resolved":
       return "bg-green-100 text-green-800";
-    case "maintenance":
+    case "in-progress":
       return "bg-blue-100 text-blue-800";
-    case "complaint":
-      return "bg-red-100 text-red-800";
     case "pending":
       return "bg-orange-100 text-orange-800";
+    case "rejected":
+      return "bg-red-100 text-red-800";
     default:
       return "bg-gray-100 text-gray-800";
   }
 };
 
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "high":
-      return "border-l-red-500";
-    case "medium":
-      return "border-l-yellow-500";
-    case "low":
-      return "border-l-green-500";
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case "in-progress":
+      return "In Progress";
+    case "resolved":
+      return "Resolved";
+    case "pending":
+      return "Pending";
+    case "rejected":
+      return "Rejected";
     default:
-      return "border-l-gray-500";
+      return status;
   }
 };
 
 /* -------------------- MAIN REPORT COMPONENT -------------------- */
-const Report: React.FC = () => {
+const StaffReports: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<StatusKey>("all");
-  const [viewMode, setViewMode] = useState<"list" | "board">("list");
-  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Use the reports hook from clean architecture
+  const { 
+    reports, 
+    loading, 
+    error, 
+    clearError,
+    updateReportStatus,
+    getAllReports
+  } = useReports();
 
-  const filteredTasks = tasks.filter((task) => {
-    if (activeFilter === "all") return true;
-    return task.status === activeFilter;
+  // Load all reports with higher limit for admin, sorted by latest first
+  useEffect(() => {
+    getAllReports({ 
+      limit: 100,
+      sortBy: 'submittedAt',
+      sortOrder: 'desc'
+    });
+  }, [getAllReports]);
+
+  // ✅ Status update handler
+  const handleStatusUpdate = async (reportId: string, newStatus: ReportStatus) => {
+    try {
+      await updateReportStatus(reportId, newStatus);
+      // The hook will automatically refresh the data
+    } catch (error) {
+      console.error('Failed to update report status:', error);
+      // You could add a toast notification here
+    }
+  };
+
+  // Filter reports based on active filter and search term
+  const filteredReports = reports.filter((report) => {
+    const matchesFilter = activeFilter === "all" || report.status === activeFilter;
+    const matchesSearch = searchTerm === "" || 
+      report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      report.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${report.tenant?.firstName} ${report.tenant?.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesFilter && matchesSearch;
   });
 
   const statusCounts: Record<StatusKey, number> = {
-    all: tasks.length,
-    completed: tasks.filter((t) => t.status === "completed").length,
-    "maintenance": tasks.filter((t) => t.status === "maintenance").length,
-    "complaint": tasks.filter((t) => t.status === "complaint").length,
-    pending: tasks.filter((t) => t.status === "pending").length,
+    all: reports.length,
+    resolved: reports.filter((r) => r.status === "resolved").length,
+    "in-progress": reports.filter((r) => r.status === "in-progress").length,
+    pending: reports.filter((r) => r.status === "pending").length,
+    rejected: reports.filter((r) => r.status === "rejected").length,
   };
 
   const filters: { key: StatusKey; label: string }[] = [
     { key: "all", label: "All Reports" },
-    { key: "completed", label: "Completed" },
-    { key: "maintenance", label: "Maintenance" },
-    { key: "complaint", label: "Complaint" },
+    { key: "resolved", label: "Resolved" },
+    { key: "in-progress", label: "In Progress" },
     { key: "pending", label: "Pending" },
+    { key: "rejected", label: "Rejected" },
   ];
 
-    return (
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar />
-          <div className="flex-1 flex flex-col min-w-0 pl-64">
-            <TopNavbar />
-            
-                {/* Main Content Area */}
-                <main className="flex-1 p-6 overflow-auto">
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex-1 flex flex-col min-w-0 pl-64">
+        <TopNavbar />
+        
+        {/* Main Content Area */}
+        <main className="flex-1 p-6 overflow-auto">
 
-                      {/* Quick Stats */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Total Projects</p>
-                              <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <AlertCircle className="w-4 h-4 text-blue-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Completed</p>
-                              <p className="text-2xl font-bold text-green-600">{statusCounts.completed}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                              <CheckCircle className="w-4 h-4 text-green-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">In Progress</p>
-                              <p className="text-2xl font-bold text-blue-600">{statusCounts['maintenance']}</p>
-                            </div>
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Play className="w-4 h-4 text-blue-600" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-sm text-gray-600">Overdue</p>
-                              <p className="text-2xl font-bold text-red-600">3</p>
-                            </div>
-                            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                              <Clock className="w-4 h-4 text-red-600" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Search and View Controls */}
-                      <div className="flex flex-col mb-6">
-                        {/* Search Bar */}
-                        <div className="flex-1">
-                            <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input
-                                type="text"
-                                placeholder="Search tasks..."
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
-                            </div>
-                        </div>
-                      </div>
-
-                      {/* Status Filter Tabs */}
-                      <div className="flex gap-4 mb-6 border-b border-gray-200">
-                        {filters.map(filter => (
-                          <button
-                            key={filter.key}
-                            onClick={() => setActiveFilter(filter.key)}
-                            className={`pb-3 px-1 border-b-2 font-medium text-sm ${
-                              activeFilter === filter.key
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                          >
-                            {filter.label} ({statusCounts[filter.key]})
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Task List */}
-                      <div className="space-y-4">
-                        {filteredTasks.map(task => (
-                          <div
-                            key={task.id}
-                            className={`bg-white rounded-lg shadow-sm border-l-4 ${getPriorityColor(task.priority)} p-6 hover:shadow-md transition-shadow`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  {getStatusIcon(task.status)}
-                                  <h3 className="text-lg font-semibold text-gray-900">{task.title}</h3>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                    {task.status.replace('-', ' ')}
-                                  </span>
-                                </div>
-
-                                <p className="text-gray-600 mb-4">{task.description}</p>
-
-                                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-                                  <div className="flex items-center gap-1">
-                                    <User className="w-4 h-4" />
-                                    <span>{task.assignee}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="w-4 h-4" />
-                                    <span>{task.dueDate}</span>
-                                  </div>
-                                </div>
-
-                              </div>
-
-                              <div className="ml-6 text-right">
-                                <div className="text-sm text-gray-500 mb-2">Progress</div>
-                                <div className="w-32">
-                                  <div className="flex justify-between text-sm mb-1">
-                                    <span className="font-medium">{task.progress}%</span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                      style={{ width: `${task.progress}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                </main>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Reports</p>
+                  <p className="text-2xl font-bold text-gray-900">{reports.length}</p>
+                </div>
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-blue-600" />
+                </div>
+              </div>
             </div>
-        </div>
-    );
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Resolved</p>
+                  <p className="text-2xl font-bold text-green-600">{statusCounts.resolved}</p>
+                </div>
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">In Progress</p>
+                  <p className="text-2xl font-bold text-blue-600">{statusCounts["in-progress"]}</p>
+                </div>
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Play className="w-4 h-4 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Pending</p>
+                  <p className="text-2xl font-bold text-red-600">{statusCounts.pending}</p>
+                </div>
+                <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-red-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search and View Controls */}
+          <div className="flex flex-col mb-6">
+            {/* Search Bar */}
+            <div className="flex-1">
+                <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                    type="text"
+                    placeholder="Search reports..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                </div>
+            </div>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex gap-4 mb-6 border-b border-gray-200">
+            {filters.map(filter => (
+              <button
+                key={filter.key}
+                onClick={() => setActiveFilter(filter.key)}
+                className={`pb-3 px-1 border-b-2 font-medium text-sm ${
+                  activeFilter === filter.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {filter.label} ({statusCounts[filter.key]})
+              </button>
+            ))}
+          </div>
+
+          {/* Loading and Error States */}
+          {loading && (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              <div className="flex justify-between items-center">
+                <span>{error}</span>
+                <button 
+                  onClick={clearError}
+                  className="text-red-700 hover:text-red-900"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Reports List */}
+          <div className="space-y-4">
+            {!loading && filteredReports.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                {searchTerm ? 'No reports match your search.' : 'No reports found.'}
+              </div>
+            )}
+            
+            {filteredReports.map(report => (
+              <div
+                key={report._id}
+                className={`bg-white rounded-lg shadow-sm border-l-4 border-l-blue-500 p-6 hover:shadow-md transition-shadow`}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {getStatusIcon(report.status)}
+                      <h3 className="text-lg font-semibold text-gray-900">{report.title}</h3>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                        {getStatusLabel(report.status)}
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800`}>
+                        {report.type}
+                      </span>
+                    </div>
+
+                    <p className="text-gray-600 mb-4">{report.description}</p>
+
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <User className="w-4 h-4" />
+                        <span>{`${report.tenant?.firstName} ${report.tenant?.lastName}` || 'Unknown User'}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        <span>{new Date(report.submittedAt).toLocaleDateString()}</span>
+                      </div>
+                      {report.updatedAt && report.updatedAt !== report.submittedAt && (
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          <span>Updated: {new Date(report.updatedAt).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <span>Room: {report.room?.roomNumber}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span>Days: {report.daysSinceSubmission}</span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <div className="ml-6 text-right">
+                    <div className="text-sm text-gray-500 mb-2">Status</div>
+                    <StatusDropdown
+                      currentStatus={report.status}
+                      onStatusChange={(newStatus) => handleStatusUpdate(report._id, newStatus)}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+        </main>
+      </div>
+    </div>
+  );
 };
 
-export default Report;
+export default StaffReports;

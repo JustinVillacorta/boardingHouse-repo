@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Search,
   Bell,
@@ -28,6 +29,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useDashboard } from "../../features/dashboard/presentation/hooks/useDashboard";
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -117,12 +119,19 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if logout fails, clear local state and redirect
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    }
   };
 
   const navigationItems = [
@@ -167,11 +176,11 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.username ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase() : 'U'}
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -186,7 +195,7 @@ const Sidebar: React.FC = () => {
                   fill="#c62525ff" />
                 </svg>
                 <div className="text-s text-medium font-semibold">
-                  <span>Admin</span>
+                  <span>{user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'User'}</span>
                 </div>
               </div>
             </div>
@@ -245,25 +254,82 @@ const Sidebar: React.FC = () => {
 };
 
 /* -------------------- DASHBOARD -------------------- */
-const workLogData = [
-  { name: "Occupied", value: 18, color: "#899effff" },
-  { name: "Vacant", value: 2, color: "#ff7575ff" }
-];
 /* -------------------- PERFORMANCE DATA -------------------- */
 type PaymentData = {
   month: string;
   collected: number;
   overdue: number;
+  amount: number;
 };
 
 const SAMPLE_PAYMENTS: PaymentData[] = [
-  { month: "Jan", collected: 13500, overdue: 500 },
-  { month: "Feb", collected: 13200, overdue: 700 },
-  { month: "Mar", collected: 13800, overdue: 600 },
-  { month: "Apr", collected: 13000, overdue: 900 },
+  { month: "Jan", collected: 13500, overdue: 500, amount: 14000 },
+  { month: "Feb", collected: 13200, overdue: 700, amount: 13900 },
+  { month: "Mar", collected: 13800, overdue: 600, amount: 14400 },
+  { month: "Apr", collected: 13000, overdue: 900, amount: 13900 },
 ];
 
 const Dashboard: React.FC = () => {
+  const { data, loading, error, refreshData } = useDashboard();
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 pl-64">
+          <TopNavbar />
+          <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 pl-64">
+          <TopNavbar />
+          <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
+            <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Error loading dashboard data
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{error}</p>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      onClick={refreshData}
+                      className="bg-red-100 hover:bg-red-200 text-red-800 px-4 py-2 rounded-md text-sm font-medium"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Prepare chart data for occupancy
+  const workLogData = data.occupancy ? [
+    { name: "Occupied", value: data.occupancy.occupiedRooms, color: "#899effff" },
+    { name: "Available", value: data.occupancy.availableRooms, color: "#10b981" },
+    { name: "Maintenance", value: data.occupancy.maintenanceRooms, color: "#ff7575ff" }
+  ].filter(item => item.value > 0) : [];
+
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar />
@@ -282,7 +348,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-medium font-medium text-gray-500">Total Rooms</p>
-                    <p className="text-2xl font-semibold text-gray-900">20</p>
+                    <p className="text-2xl font-semibold text-gray-900">{data.occupancy?.totalRooms || 0}</p>
                   </div>
                 </div>
 
@@ -290,9 +356,9 @@ const Dashboard: React.FC = () => {
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-center">
                     <Dot />
-                    <span className="text-medium font-semibold text-gray-700">18 Occupied</span>
+                    <span className="text-medium font-semibold text-gray-700">{data.occupancy?.occupiedRooms || 0} Occupied</span>
                     <Dot/>
-                    <span className="text-medium font-semibold text-gray-700">2 Vacant</span>
+                    <span className="text-medium font-semibold text-gray-700">{data.occupancy?.availableRooms || 0} Available</span>
                   </div>
                 </div>
               </div>
@@ -301,7 +367,7 @@ const Dashboard: React.FC = () => {
                   <div className="flex items-center justify-between">
                       <div>
                           <p className="text-sm font-medium text-gray-500">Total Tenants</p>
-                          <p className="text-2xl font-semibold text-gray-900">18</p>
+                          <p className="text-2xl font-semibold text-gray-900">{data.stats?.tenants?.total || 0}</p>
                       </div>
                       <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                           <Users className="w-6 h-6 text-green-600" />
@@ -312,7 +378,7 @@ const Dashboard: React.FC = () => {
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-center">
                     <Dot />
-                     <span className="text-medium font-semibold text-gray-700">Active Tenancies</span>
+                     <span className="text-medium font-semibold text-gray-700">{data.stats?.tenants?.active || 0} Active Tenancies</span>
                   </div> 
                 </div>
               </div>
@@ -321,17 +387,19 @@ const Dashboard: React.FC = () => {
                   <div className="flex items-center justify-between">
                       <div>
                           <p className="text-sm font-medium text-gray-500">Monthly Revenue</p>
-                          <p className="text-2xl font-semibold text-gray-900">4</p>
+                          <p className="text-2xl font-semibold text-gray-900">₱{(data.payments?.thisMonth?.amount || 0).toLocaleString()}</p>
                       </div>
                       <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                          <Clock className="w-6 h-6 text-orange-600" />
+                          <PhilippinePeso className="w-6 h-6 text-orange-600" />
                       </div>
                   </div>
 
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-center">
                     <Dot />
-                     <span className="text-medium font-semibold text-gray-700">82.0% Collected</span>
+                     <span className="text-medium font-semibold text-gray-700">
+                       {data.payments?.byStatus?.paid?.count || 0} of {data.payments?.thisMonth?.count || 0} Collected
+                     </span>
                   </div> 
                 </div>
               </div>
@@ -339,11 +407,11 @@ const Dashboard: React.FC = () => {
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <div className="flex items-center justify-between">
                       <div>
-                          <p className="text-sm font-medium text-gray-500">Maintenance Request</p>
-                          <p className="text-2xl font-semibold text-gray-900">3</p>
+                          <p className="text-sm font-medium text-gray-500">Maintenance Requests</p>
+                          <p className="text-2xl font-semibold text-gray-900">{data.reports?.total || 0}</p>
                       </div>
                       <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                          <TrendingUp className="w-6 h-6 text-purple-600" />
+                          <Wrench className="w-6 h-6 text-purple-600" />
                       </div>
                   </div>
 
@@ -351,7 +419,7 @@ const Dashboard: React.FC = () => {
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center justify-center">
                     <Dot />
-                     <span className="text-medium font-semibold text-gray-700">Total Open Request</span>
+                     <span className="text-medium font-semibold text-gray-700">{data.reports?.byStatus?.pending || 0} Pending</span>
                   </div> 
                 </div>
 
@@ -403,7 +471,7 @@ const Dashboard: React.FC = () => {
                         ></div>
                         <span className="text-xs text-gray-600">{item.name}</span>
                       </div>
-                      <span className="text-xs font-medium text-gray-800">{item.value}%</span>
+                      <span className="text-xs font-medium text-gray-800">{item.value}</span>
                     </div>
                   ))}
                 </div>
@@ -414,25 +482,25 @@ const Dashboard: React.FC = () => {
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-800">Monthly Payment Trends</h2>
-                <span className="text-sm text-gray-600">82.0%</span>
+                <span className="text-sm text-gray-600">{data.occupancy?.occupancyRate || 0}%</span>
               </div>
               <p className="text-sm text-gray-500 mb-4">Payment collection performance over time</p>
 
               {/* Line Chart */}
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={SAMPLE_PAYMENTS}>
+                  <LineChart data={data.payments?.monthlyTrends || SAMPLE_PAYMENTS}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#6B7280" />
                     <YAxis tick={{ fontSize: 12 }} stroke="#6B7280" />
                     <Tooltip />
                     <Line
                       type="monotone"
-                      dataKey="collected"
+                      dataKey="amount"
                       stroke="#3B82F6"
                       strokeWidth={3}
                       dot={{ fill: "#3B82F6", r: 3 }}
-                      name="Collected"
+                      name="Total Amount"
                     />
                     <Line
                       type="monotone"

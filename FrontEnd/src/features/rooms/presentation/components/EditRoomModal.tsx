@@ -1,0 +1,460 @@
+import React, { useState, useEffect } from 'react';
+import { X, Wifi, Tv, BookOpen, Bath, Wind, Eye, Refrigerator, Shirt, Bed, ChefHat, ShirtIcon } from 'lucide-react';
+import { useRooms } from '../hooks/useRooms';
+
+interface Room {
+  _id: string;
+  roomNumber: string;
+  roomType: 'single' | 'double' | 'triple' | 'quad' | 'suite' | 'studio';
+  capacity: number;
+  status: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
+  monthlyRent: number;
+  amenities?: string[];
+  description?: string;
+  floor?: number;
+  area?: number;
+  isActive?: boolean;
+}
+
+interface EditRoomModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onRoomUpdated: () => void;
+  room: Room | null;
+}
+
+interface EditFormData {
+  // Basic Information
+  roomNumber: string;
+  roomType: 'single' | 'double' | 'triple' | 'quad' | 'suite' | 'studio';
+  capacity: number;
+  status: 'available' | 'occupied' | 'maintenance' | 'reserved' | 'unavailable';
+  
+  // Pricing Information
+  monthlyRent: number;
+  
+  // Room Amenities
+  amenities: string[];
+  
+  // Room Description
+  description: string;
+  
+  // Additional Fields
+  floor: number;
+  area: number;
+  isActive: boolean;
+}
+
+const EditRoomModal: React.FC<EditRoomModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onRoomUpdated, 
+  room 
+}) => {
+  const [formData, setFormData] = useState<EditFormData>({
+    roomNumber: '',
+    roomType: 'single',
+    capacity: 1,
+    status: 'available',
+    monthlyRent: 0,
+    amenities: [],
+    description: '',
+    floor: 1,
+    area: 0,
+    isActive: true,
+  });
+
+  const { updateRoom, isLoading, error: roomError } = useRooms();
+  const [localError, setLocalError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Combine errors from hook and local validation
+  const error = localError || roomError;
+
+  const predefinedAmenities = [
+    { name: 'Wifi', icon: Wifi },
+    { name: 'TV', icon: Tv },
+    { name: 'Study Desk', icon: BookOpen },
+    { name: 'Private Bathroom', icon: Bath },
+    { name: 'Air Conditioning', icon: Wind },
+    { name: 'Window View', icon: Eye },
+    { name: 'Mini Fridge', icon: Refrigerator },
+    { name: 'Closet/Wardrobe', icon: Shirt },
+    { name: 'Bed with Mattress', icon: Bed },
+    { name: 'Kitchen Access', icon: ChefHat },
+    { name: 'Laundry Access', icon: ShirtIcon },
+  ];
+
+  // Update form data when room prop changes
+  useEffect(() => {
+    if (room) {
+      setFormData({
+        roomNumber: room.roomNumber || '',
+        roomType: room.roomType || 'single',
+        capacity: room.capacity || 1,
+        status: room.status || 'available',
+        monthlyRent: room.monthlyRent || 0,
+        amenities: room.amenities || [],
+        description: room.description || '',
+        floor: room.floor || 1,
+        area: room.area || 0,
+        isActive: room.isActive !== undefined ? room.isActive : true,
+      });
+    }
+    setLocalError(null);
+    setSuccess(null);
+  }, [room]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'capacity' || name === 'monthlyRent' || name === 'floor' || name === 'area' 
+        ? Number(value) || 0 
+        : type === 'checkbox' 
+        ? (e.target as HTMLInputElement).checked
+        : value
+    }));
+  };
+
+  const handleAmenityToggle = (amenity: string) => {
+    setFormData(prev => ({
+      ...prev,
+      amenities: prev.amenities.includes(amenity)
+        ? prev.amenities.filter(a => a !== amenity)
+        : [...prev.amenities, amenity]
+    }));
+  };
+
+  const validateForm = (): string | null => {
+    if (!formData.roomNumber.trim()) return 'Room number is required';
+    if (formData.capacity < 1) return 'Capacity must be at least 1';
+    if (formData.monthlyRent <= 0) return 'Monthly rent must be greater than 0';
+    return null;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!room) {
+      setLocalError('No room selected for editing');
+      return;
+    }
+
+    const validationError = validateForm();
+    if (validationError) {
+      setLocalError(validationError);
+      return;
+    }
+
+    setLocalError(null);
+    setSuccess(null);
+
+    try {
+      const updateData = {
+        roomNumber: formData.roomNumber,
+        roomType: formData.roomType,
+        capacity: formData.capacity,
+        status: formData.status,
+        monthlyRent: formData.monthlyRent,
+        amenities: formData.amenities,
+        description: formData.description || undefined,
+        floor: formData.floor || undefined,
+        area: formData.area || undefined,
+        isActive: formData.isActive,
+      };
+
+      await updateRoom(room._id, updateData);
+      
+      setSuccess('Room updated successfully!');
+      onRoomUpdated();
+      
+      // Close modal after successful update
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+
+    } catch (error: any) {
+      setLocalError(error.message || 'Failed to update room');
+    }
+  };
+
+  const handleCancel = () => {
+    if (room) {
+      setFormData({
+        roomNumber: room.roomNumber || '',
+        roomType: room.roomType || 'single',
+        capacity: room.capacity || 1,
+        status: room.status || 'available',
+        monthlyRent: room.monthlyRent || 0,
+        amenities: room.amenities || [],
+        description: room.description || '',
+        floor: room.floor || 1,
+        area: room.area || 0,
+        isActive: room.isActive !== undefined ? room.isActive : true,
+      });
+    }
+    setLocalError(null);
+    setSuccess(null);
+    onClose();
+  };
+
+  if (!isOpen || !room) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Edit Room</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Update room information for {room.roomNumber}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Basic Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+              Basic Information
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Room Number</label>
+                <input
+                  type="text"
+                  name="roomNumber"
+                  value={formData.roomNumber}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 105-A184"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+                <select
+                  name="roomType"
+                  value={formData.roomType}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="single">Single</option>
+                  <option value="double">Double</option>
+                  <option value="triple">Triple</option>
+                  <option value="quad">Quad</option>
+                  <option value="suite">Suite</option>
+                  <option value="studio">Studio</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
+                <input
+                  type="number"
+                  name="capacity"
+                  value={formData.capacity}
+                  onChange={handleInputChange}
+                  min="1"
+                  placeholder="Number of beds"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="available">Available</option>
+                  <option value="occupied">Occupied</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="reserved">Reserved</option>
+                  <option value="unavailable">Unavailable</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+              Pricing Information
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Rent</label>
+                <input
+                  type="number"
+                  name="monthlyRent"
+                  value={formData.monthlyRent}
+                  onChange={handleInputChange}
+                  min="0"
+                  placeholder="e.g., 1350"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              
+
+            </div>
+          </div>
+
+          {/* Room Amenities */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+              Room Amenities
+            </h3>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {predefinedAmenities.map((amenity) => (
+                <button
+                  key={amenity.name}
+                  type="button"
+                  onClick={() => handleAmenityToggle(amenity.name)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                    formData.amenities.includes(amenity.name)
+                      ? 'bg-blue-50 border-blue-500 text-blue-700'
+                      : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <amenity.icon className="w-4 h-4" />
+                  <span className="text-sm">{amenity.name}</span>
+                </button>
+              ))}
+            </div>
+
+            {formData.amenities.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Selected Amenities</label>
+                <div className="flex flex-wrap gap-2">
+                  {formData.amenities.map((amenity) => (
+                    <span
+                      key={amenity}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
+                    >
+                      {amenity}
+                      <button
+                        type="button"
+                        onClick={() => handleAmenityToggle(amenity)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Room Description */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+              Room Description
+            </h3>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Additional room description"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Additional Fields */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+              Additional Information
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Floor</label>
+                <input
+                  type="number"
+                  name="floor"
+                  value={formData.floor}
+                  onChange={handleInputChange}
+                  min="0"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Area (sq meters)</label>
+                <input
+                  type="number"
+                  name="area"
+                  value={formData.area}
+                  onChange={handleInputChange}
+                  min="0"
+                  step="0.1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Error and Success Messages */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-700 text-sm">{error}</p>
+            </div>
+          )}
+
+          {success && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-green-700 text-sm">{success}</p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {isLoading ? 'Updating...' : 'Update Room'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default EditRoomModal;

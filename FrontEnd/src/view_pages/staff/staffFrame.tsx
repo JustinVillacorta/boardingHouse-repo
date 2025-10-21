@@ -14,11 +14,7 @@ import {
   DoorOpen,
   PhilippinePeso,
   Wrench,
-  BellDot,
-  Plus,
-  Building,
-  FileText,
-  DollarSign
+  BellDot
 } from "lucide-react";
 import {
   PieChart,
@@ -32,6 +28,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useAuth } from "../../contexts/AuthContext";
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -121,16 +118,22 @@ const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { user, logout } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      setShowLogoutConfirm(false);
+      navigate("/sign-in", { replace: true });
+    }
   };
 
   const navigationItems = [
-    { name: "Dashboard", icon: LayoutDashboard, path: "/staff" },
+    { name: "Dashboard", icon: LayoutDashboard, path: "/staff-dashboard" },
     { name: "Users", icon: User, path: "/staff-users" },
     { name: "Rooms", icon: DoorOpen, path: "/staff-rooms" },
     { name: "Payment", icon: PhilippinePeso, path: "/staff-payment" },
@@ -171,11 +174,16 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.tenant 
+                ? `${user.tenant.firstName.charAt(0)}${user.tenant.lastName.charAt(0)}`.toUpperCase()
+                : user?.username 
+                  ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase()
+                  : 'U'
+              }
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -187,10 +195,10 @@ const Sidebar: React.FC = () => {
                   viewBox="0 0 16 16"
                 >
                   <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"
-                  fill="#4E91C4" />
+                  fill="#c62525ff" />
                 </svg>
                 <div className="text-s text-medium font-semibold">
-                  <span>Staff</span>
+                  <span className="capitalize">{user?.role || 'User'}</span>
                 </div>
               </div>
             </div>
@@ -414,33 +422,55 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 space-y-4">
+            {/* Payment Performance Card */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Quick Actions</h2>
+                <h2 className="text-lg font-semibold text-gray-800">Monthly Payment Trends</h2>
+                <span className="text-sm text-gray-600">82.0%</span>
               </div>
-              <p className="text-sm text-gray-500 mb-4">Common tasks and shortcuts</p>
+              <p className="text-sm text-gray-500 mb-4">Payment collection performance over time</p>
 
-              <button className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-200 hover:bg-blue-600 hover:text-white text-black rounded-lg transition-colors">
-              <Plus className="w-5 h-5" />
-                <span className="font-medium">Add New Tenant</span>
-              </button> 
-              
-              <button className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-200 hover:bg-blue-600 hover:text-white text-black rounded-lg transition-colors">
-              <DollarSign className="w-5 h-5" />
-                <span className="font-medium">Record Payment</span>
-              </button> 
+              {/* Line Chart */}
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={SAMPLE_PAYMENTS}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#6B7280" />
+                    <YAxis tick={{ fontSize: 12 }} stroke="#6B7280" />
+                    <Tooltip />
+                    <Line
+                      type="monotone"
+                      dataKey="collected"
+                      stroke="#3B82F6"
+                      strokeWidth={3}
+                      dot={{ fill: "#3B82F6", r: 3 }}
+                      name="Collected"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="overdue"
+                      stroke="#EF4444"
+                      strokeWidth={3}
+                      dot={{ fill: "#EF4444", r: 3 }}
+                      name="Overdue"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
 
-              <button className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-200 hover:bg-blue-600 hover:text-white text-black rounded-lg transition-colors">
-              <FileText className="w-5 h-5" />
-                <span className="font-medium">Update Maintenance Request</span>
-              </button> 
-
-              <button className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-200 hover:bg-blue-600 hover:text-white text-black rounded-lg transition-colors">
-              <Building className="w-5 h-5" />
-                <span className="font-medium">Check Room Availability</span>
-              </button> 
-              
+              {/* Summary */}
+              <div className="flex justify-center gap-6 mt-6">
+                <div className="px-6 py-3 bg-blue-50 rounded-lg text-center">
+                  <p className="text-blue-600 font-semibold">₱ 12,505</p>
+                  <p className="text-sm text-gray-600">Collected</p>
+                </div>
+                <div className="px-6 py-3 bg-red-50 rounded-lg text-center">
+                  <p className="text-red-600 font-semibold">₱ 945</p>
+                  <p className="text-sm text-gray-600">Overdue</p>
+                </div>
+              </div>
             </div>
+
           </div>
         </main>
       </div>

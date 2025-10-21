@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation  } from 'react-router-dom';
 import { 
   Search,
@@ -9,33 +9,99 @@ import {
   Wrench,
   BellDot,
   LogOut,
-  Bell
+  Bell,
+  X,
+  Download
 } from 'lucide-react';
+import { useAuth } from "../../contexts/AuthContext";
+import apiService from '../../services/apiService';
+
+interface Payment {
+  _id: string;
+  tenant: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+  };
+  room: {
+    _id: string;
+    roomNumber: string;
+    roomType: string;
+    monthlyRent: number;
+  };
+  amount: number;
+  paymentType: string;
+  paymentMethod: string;
+  status: 'pending' | 'paid' | 'overdue';
+  dueDate: string;
+  paymentDate?: string;
+  receiptNumber?: string;
+  isLatePayment: boolean;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface Task {
   id: string;
-  roomnumber: string;
-  assignee: string;
-  status: 'Occupied' | 'More Info';
-  dueDate: string;
+  roomNumber: string;
+  roomType: string;
+  currentTenant: string;
+  tenantId: string;
+  totalPayments: number;
+  pendingAmount: number;
+  overdueAmount: number;
+  lastPaymentDate: string;
+  room: {
+    _id: string;
+    roomNumber: string;
+    roomType: string;
+    monthlyRent: number;
+  };
 }
 
-const SAMPLE_TASKS: Task[] = [
-  {
-    id: '1',
-    roomnumber: '305',
-    assignee: 'Yaoh Ghori',
-    status: 'More Info',
-    dueDate: '2024-01-15'
-  },
-  {
-    id: '2',
-    roomnumber: '273',
-    assignee: 'Sarah Wilson',
-    status: 'Occupied',
-    dueDate: '2024-01-15'
-  },
-];
+interface PaymentHistory {
+  id: string;
+  description: string;
+  amount: number;
+  dueDate: string;
+  paidDate: string;
+  status: 'Paid' | 'Pending' | 'Overdue';
+  paymentMethod: string;
+}
+
+interface PaymentHistoryModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  roomNumber: string;
+  tenantName: string;
+  tenantId: string;
+}
+
+interface MarkAsPaidDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  paymentDescription: string;
+  amount: number;
+  dueDate: string;
+  onConfirm: () => void;
+}
+
+interface DownloadReceiptDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  paymentData: {
+    description: string;
+    amount: number;
+    dueDate: string;
+    paidDate: string;
+    paymentMethod: string;
+  };
+  onDownload: () => void;
+}
+
 
 /* -------------------- TOP NAVBAR -------------------- */
 const TopNavbar: React.FC = () => {
@@ -120,17 +186,529 @@ const TopNavbar: React.FC = () => {
   );
 };
 
+/* -------------------- MARK AS PAID DIALOG -------------------- */
+const MarkAsPaidDialog: React.FC<MarkAsPaidDialogProps> = ({
+  isOpen,
+  onClose,
+  paymentDescription,
+  amount,
+  dueDate,
+  onConfirm
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-800">Mark as Paid</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4">
+          <p className="text-gray-600 mb-4">
+            Are you sure you want to mark this payment as paid?
+          </p>
+          <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Description:</span>
+              <span className="font-medium">{paymentDescription}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Amount:</span>
+              <span className="font-medium">₱{amount.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Due Date:</span>
+              <span className="font-medium">{dueDate}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Yes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* -------------------- DOWNLOAD RECEIPT DIALOG -------------------- */
+const DownloadReceiptDialog: React.FC<DownloadReceiptDialogProps> = ({
+  isOpen,
+  onClose,
+  paymentData,
+  onDownload
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-800">Download Receipt of the Payment</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4">
+          <div className="bg-gray-50 rounded-lg overflow-hidden">
+            {/* Header Row */}
+            <div className="grid grid-cols-5 bg-gray-100 p-3 text-sm font-medium text-gray-700">
+              <span>Description</span>
+              <span>Amount</span>
+              <span>Due Date</span>
+              <span>Paid Date</span>
+              <span>Payment Method</span>
+            </div>
+            
+            {/* Data Row */}
+            <div className="grid grid-cols-5 p-3 text-sm text-gray-800">
+              <span>{paymentData.description}</span>
+              <span>₱{paymentData.amount.toLocaleString()}</span>
+              <span>{paymentData.dueDate}</span>
+              <span>{paymentData.paidDate}</span>
+              <span>{paymentData.paymentMethod}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onDownload}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Yes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* -------------------- PAYMENT HISTORY MODAL -------------------- */
+const PaymentHistoryModal: React.FC<PaymentHistoryModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  roomNumber, 
+  tenantName,
+  tenantId
+}) => {
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [currentPayments, setCurrentPayments] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isMarkAsPaidDialogOpen, setIsMarkAsPaidDialogOpen] = useState(false);
+  const [isDownloadDialogOpen, setIsDownloadDialogOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+
+  const fetchPaymentData = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all payments for this tenant
+      const response = await apiService.getPaymentsByTenant(tenantId, {
+        sort: 'dueDate',
+        order: 'desc',
+        limit: 50
+      });
+
+      if (response.success) {
+        const payments = response.data.payments || [];
+        
+        // Separate current (pending/overdue) and historical (paid) payments
+        const current = payments.filter((p: Payment) => p.status === 'pending' || p.status === 'overdue');
+        const historical = payments.filter((p: Payment) => p.status === 'paid');
+        
+        setCurrentPayments(current);
+        
+        // Convert to PaymentHistory format
+        const historyData: PaymentHistory[] = historical.map((p: Payment) => ({
+          id: p._id,
+          description: p.description || `${p.paymentType} - ${new Date(p.dueDate).toLocaleDateString()}`,
+          amount: p.amount,
+          dueDate: new Date(p.dueDate).toLocaleDateString(),
+          paidDate: p.paymentDate ? new Date(p.paymentDate).toLocaleDateString() : '',
+          status: p.status === 'paid' ? 'Paid' : (p.status === 'overdue' ? 'Overdue' : 'Pending') as 'Paid' | 'Pending' | 'Overdue',
+          paymentMethod: p.paymentMethod
+        }));
+        
+        setPaymentHistory(historyData);
+      }
+    } catch (error) {
+      console.error('Error fetching payment data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [tenantId]);
+
+  // Fetch payment data when modal opens
+  useEffect(() => {
+    if (isOpen && tenantId) {
+      fetchPaymentData();
+    }
+  }, [isOpen, tenantId, fetchPaymentData]);
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'Paid':
+        return "bg-green-100 text-green-800 border-green-200";
+      case 'Pending':
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case 'Overdue':
+        return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const handleMarkAsPaid = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setIsMarkAsPaidDialogOpen(true);
+  };
+
+  const handleHistoryDownload = (paymentHistory: PaymentHistory) => {
+    // Create a Payment object from PaymentHistory for download
+    const payment: Payment = {
+      _id: paymentHistory.id,
+      tenant: { _id: '', firstName: '', lastName: '', email: '', phoneNumber: '' },
+      room: { _id: '', roomNumber: '', roomType: '', monthlyRent: 0 },
+      amount: paymentHistory.amount,
+      paymentType: '',
+      paymentMethod: paymentHistory.paymentMethod,
+      status: paymentHistory.status === 'Paid' ? 'paid' : (paymentHistory.status === 'Overdue' ? 'overdue' : 'pending'),
+      dueDate: '',
+      paymentDate: paymentHistory.paidDate || undefined,
+      receiptNumber: '',
+      isLatePayment: false,
+      description: paymentHistory.description,
+      createdAt: '',
+      updatedAt: ''
+    };
+    setSelectedPayment(payment);
+    setIsDownloadDialogOpen(true);
+  };
+
+  const handleHistoryMarkAsPaid = (paymentHistory: PaymentHistory) => {
+    // Create a Payment object from PaymentHistory for marking as paid
+    const payment: Payment = {
+      _id: paymentHistory.id,
+      tenant: { _id: tenantId, firstName: '', lastName: '', email: '', phoneNumber: '' },
+      room: { _id: '', roomNumber: roomNumber, roomType: '', monthlyRent: 0 },
+      amount: paymentHistory.amount,
+      paymentType: '',
+      paymentMethod: paymentHistory.paymentMethod,
+      status: paymentHistory.status === 'Paid' ? 'paid' : (paymentHistory.status === 'Overdue' ? 'overdue' : 'pending'),
+      dueDate: paymentHistory.dueDate,
+      paymentDate: paymentHistory.paidDate || undefined,
+      receiptNumber: '',
+      isLatePayment: false,
+      description: paymentHistory.description,
+      createdAt: '',
+      updatedAt: ''
+    };
+    setSelectedPayment(payment);
+    setIsMarkAsPaidDialogOpen(true);
+  };
+
+  const confirmMarkAsPaid = async () => {
+    try {
+      if (selectedPayment && selectedPayment._id) {
+        const response = await apiService.markPaymentCompleted(selectedPayment._id);
+        if (response.success) {
+          // Refresh payment data
+          await fetchPaymentData();
+          alert('Payment marked as completed successfully!');
+        } else {
+          alert('Failed to mark payment as completed');
+        }
+      }
+    } catch (error) {
+      console.error('Error marking payment as paid:', error);
+      alert('Failed to mark payment as completed. Please try again.');
+    } finally {
+      setIsMarkAsPaidDialogOpen(false);
+      setSelectedPayment(null);
+    }
+  };
+
+  const confirmDownload = async () => {
+    try {
+      if (selectedPayment && selectedPayment._id) {
+        const blob = await apiService.downloadPaymentReceipt(selectedPayment._id);
+        
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `receipt-${selectedPayment._id}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      alert('Failed to download receipt. Please try again.');
+    } finally {
+      setIsDownloadDialogOpen(false);
+      setSelectedPayment(null);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      {/* Full Page Modal */}
+      <div className="fixed inset-0 bg-white z-50 overflow-y-auto">
+        {/* Sidebar */}
+        <Sidebar />
+        
+        <div className="min-h-screen pl-64">
+          {/* Top Navigation Bar */}
+          <header className="bg-blue-50 shadow-sm border-b border-gray-200 px-4 lg:px-6 py-9 relative">
+            <div className="flex items-center justify-between h-10">
+              {/* Left: Title */}
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col items-start ml-5">
+                  <h1 className="text-3xl font-semibold text-gray-800">
+                    Payment
+                  </h1>
+                  <p className="text-sm text-gray-400">
+                    Manage your account and preferences
+                  </p>
+                </div>
+              </div>
+
+              {/* Right: Search Bar and Notifications */}
+              <div className="flex items-center space-x-4">
+                {/* Search Bar */}
+                <div className="hidden lg:block relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search for anything..."
+                    className="pl-10 pr-4 py-2 w-[500px] border border-gray-300 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Notifications */}
+                <div className="relative">
+                  <button className="p-2 text-gray-500 hover:text-gray-700 relative -ml-2">
+                    <Bell className="w-6 h-6" />
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Page Content Header */}
+          <div className="bg-white border-b border-gray-200 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-800">Payment History</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Room {roomNumber} - {tenantName}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Current Payments Section */}
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Current Outstanding Payments</h3>
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading payments...</p>
+              </div>
+            ) : currentPayments.length > 0 ? (
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                {/* Header Row */}
+                <div className="grid grid-cols-4 font-semibold text-gray-700 border-b p-4 text-center bg-gray-50">
+                  <span>Description</span>
+                  <span>Amount</span>
+                  <span>Due Date</span>
+                  <span>Actions</span>
+                </div>
+                
+                {/* Current Payment Rows */}
+                <div className="divide-y divide-gray-200">
+                  {currentPayments.map((payment) => (
+                    <div key={payment._id} className="grid grid-cols-4 items-center p-4 text-gray-800">
+                      <span className="text-center">
+                        {payment.description || `${payment.paymentType} - ${new Date(payment.dueDate).toLocaleDateString()}`}
+                      </span>
+                      <span className="text-center font-semibold">₱{payment.amount.toLocaleString()}</span>
+                      <span className="text-center">{new Date(payment.dueDate).toLocaleDateString()}</span>
+                      <span className="text-center">
+                        <button 
+                          className={`px-3 py-1 text-white rounded-lg transition-colors text-sm ${
+                            payment.status === 'overdue' 
+                              ? 'bg-red-600 hover:bg-red-700' 
+                              : 'bg-blue-600 hover:bg-blue-700'
+                          }`}
+                          onClick={() => handleMarkAsPaid(payment)}
+                        >
+                          {payment.status === 'overdue' ? 'Pay Overdue' : 'Mark as Paid'}
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No outstanding payments for this room.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Payment History Section */}
+          <div className="p-6 pb-20">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Payment History</h3>
+            {paymentHistory.length > 0 ? (
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                {/* Header Row */}
+                <div className="grid grid-cols-6 font-semibold text-gray-700 border-b p-4 text-center bg-gray-50">
+                  <span>Description</span>
+                  <span>Amount</span>
+                  <span>Due Date</span>
+                  <span>Paid Date</span>
+                  <span>Status</span>
+                  <span>Actions</span>
+                </div>
+                
+                {/* Payment History Rows */}
+                <div className="divide-y divide-gray-200">
+                  {paymentHistory.map((payment) => (
+                    <div key={payment.id} className="grid grid-cols-6 items-center p-4 text-gray-800">
+                      <span className="text-center">{payment.description}</span>
+                      <span className="text-center font-semibold">₱{payment.amount.toLocaleString()}</span>
+                      <span className="text-center">{payment.dueDate}</span>
+                      <span className="text-center">{payment.paidDate || '-'}</span>
+                      <span className="text-center">
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${getStatusBadgeColor(payment.status)}`}>
+                          {payment.status}
+                        </span>
+                      </span>
+                      <span className="text-center">
+                        {payment.status === 'Paid' && (
+                          <button 
+                            className="p-1 hover:bg-gray-100 rounded transition-colors" 
+                            title="Download"
+                            onClick={() => handleHistoryDownload(payment)}
+                          >
+                            <Download className="w-4 h-4 text-gray-600 hover:text-gray-800" />
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No payment history found</p>
+              </div>
+            )}
+          </div>
+
+          {/* Fixed Footer */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-6 z-10">
+            <div className="flex justify-end">
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mark as Paid Dialog */}
+      {selectedPayment && (
+        <MarkAsPaidDialog
+          isOpen={isMarkAsPaidDialogOpen}
+          onClose={() => setIsMarkAsPaidDialogOpen(false)}
+          paymentDescription={selectedPayment.description || `${selectedPayment.paymentType} Payment`}
+          amount={selectedPayment.amount}
+          dueDate={selectedPayment.dueDate}
+          onConfirm={confirmMarkAsPaid}
+        />
+      )}
+
+      {/* Download Receipt Dialog */}
+      {selectedPayment && (
+        <DownloadReceiptDialog
+          isOpen={isDownloadDialogOpen}
+          onClose={() => setIsDownloadDialogOpen(false)}
+          paymentData={{
+            description: selectedPayment.description || `${selectedPayment.paymentType} Payment`,
+            amount: selectedPayment.amount,
+            dueDate: selectedPayment.dueDate,
+            paidDate: selectedPayment.paymentDate || '',
+            paymentMethod: selectedPayment.paymentMethod
+          }}
+          onDownload={confirmDownload}
+        />
+      )}
+    </>
+  );
+};
+
 /* -------------------- SIDEBAR -------------------- */
 const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const { logout, user } = useAuth();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    sessionStorage.clear();
-    setShowLogoutConfirm(false);
-    navigate("/sign-in");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate("/sign-in");
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setShowLogoutConfirm(false);
+      navigate("/sign-in");
+    }
   };
 
   const navigationItems = [
@@ -175,11 +753,16 @@ const Sidebar: React.FC = () => {
           {/* User Profile - below logo */}
           <div className="mt-4 flex items-center justify-center mr-12 gap-2">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-medium">
-              KA
+              {user?.tenant 
+                ? `${user.tenant.firstName.charAt(0)}${user.tenant.lastName.charAt(0)}`.toUpperCase()
+                : user?.username 
+                  ? user.username.charAt(0).toUpperCase() + (user.username.charAt(1) || '').toUpperCase()
+                  : 'U'
+              }
             </div>
             <div>
               <p className="text-sm font-medium text-gray-800 text-center">
-                Keith Ardee Lazo
+                {user?.tenant ? `${user.tenant.firstName} ${user.tenant.lastName}` : user?.username || 'User'}
               </p>
               <div className="flex items-center justify-center gap-1 text-sm text-black-700 bg-gray-300 px-3 py-1 rounded-full">
                 <svg
@@ -194,7 +777,7 @@ const Sidebar: React.FC = () => {
                   fill="#c62525ff" />
                 </svg>
                 <div className="text-s text-medium font-semibold">
-                  <span>Admin</span>
+                  <span className="capitalize">{user?.role || 'User'}</span>
                 </div>
               </div>
             </div>
@@ -252,9 +835,236 @@ const Sidebar: React.FC = () => {
   );
 };
 
-const Payment: React.FC = () =>{
+const Payment: React.FC = () => {
+  const [isPaymentHistoryModalOpen, setIsPaymentHistoryModalOpen] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<{ roomNumber: string; tenantName: string; tenantId: string } | null>(null);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Fetch payments data
+  useEffect(() => {
+    fetchPayments();
+  }, []);
+
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch all rooms first
+      const roomsResponse = await apiService.getRooms({ limit: 100 });
+      
+      // Fetch all payments using pagination
+      let allPayments: Payment[] = [];
+      let currentPage = 1;
+      let hasMorePayments = true;
+      
+      while (hasMorePayments) {
+        const paymentsResponse = await apiService.getPayments({
+          sort: 'dueDate',
+          order: 'asc',
+          limit: 100, // Max allowed by backend
+          page: currentPage
+        });
+        
+        if (paymentsResponse.success) {
+          const pagePayments = paymentsResponse.data.payments || [];
+          allPayments = [...allPayments, ...pagePayments];
+          
+          // Check if there are more pages
+          const pagination = paymentsResponse.data.pagination;
+          hasMorePayments = pagination && currentPage < pagination.pages;
+          currentPage++;
+        } else {
+          hasMorePayments = false;
+        }
+      }
+
+      if (roomsResponse.success) {
+        const roomsData = roomsResponse.data.rooms || [];
+        console.log('Room data received:', roomsData); // Debug log
+        console.log('Sample room structure:', roomsData[0]); // Debug first room structure
+        setPayments(allPayments);
+        
+        // Group payments by room
+        const roomGroups: { [key: string]: Payment[] } = {};
+        allPayments.forEach((payment: Payment) => {
+          const roomKey = payment.room._id;
+          if (!roomGroups[roomKey]) {
+            roomGroups[roomKey] = [];
+          }
+          roomGroups[roomKey].push(payment);
+        });
+
+        // Create tasks for ALL rooms, whether they have payments or not
+        const tasksData = roomsData
+          .filter((room: any) => {
+            // Show rooms that have tenants assigned
+            return room.tenant && room.tenant.id;
+          })
+          .map((room: any) => {
+            const roomPayments = roomGroups[room.id] || [];
+            console.log(`Processing room ${room.roomnumber}:`, room); // Debug each room
+            
+            // Calculate totals
+            const pendingPayments = roomPayments.filter(p => p.status === 'pending');
+            const overduePayments = roomPayments.filter(p => p.status === 'overdue');
+            const paidPayments = roomPayments.filter(p => p.status === 'paid');
+            
+            const pendingAmount = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
+            const overdueAmount = overduePayments.reduce((sum, p) => sum + p.amount, 0);
+            
+            // Get last payment date
+            const lastPaidPayment = paidPayments
+              .filter(p => p.paymentDate)
+              .sort((a, b) => new Date(b.paymentDate!).getTime() - new Date(a.paymentDate!).getTime())[0];
+            
+            // Determine tenant name and ID more accurately
+            let tenantName = 'Vacant';
+            let tenantId = '';
+            
+            // Check if tenant data exists in the room object
+            if (room.tenant && room.tenant.id) {
+              // Backend returns tenant.name and tenant.id from aggregation
+              tenantName = room.tenant.name;
+              tenantId = room.tenant.id;
+            } else if (room.assignee && room.assignee !== 'Vacant') {
+              // Fallback to assignee field if available
+              tenantName = room.assignee;
+              // Try to get tenant ID from payments if available
+              if (roomPayments.length > 0) {
+                tenantId = roomPayments[0].tenant._id;
+              }
+            }
+            
+            console.log(`Room ${room.roomnumber} - Tenant: ${tenantName}, ID: ${tenantId}`); // Debug tenant mapping
+            
+            return {
+              id: room.id,
+              roomNumber: room.roomnumber,
+              roomType: room.roomtype,
+              currentTenant: tenantName,
+              tenantId: tenantId,
+              totalPayments: roomPayments.length,
+              pendingAmount,
+              overdueAmount,
+              lastPaymentDate: lastPaidPayment ? new Date(lastPaidPayment.paymentDate!).toLocaleDateString() : 'No payments yet',
+              room: {
+                _id: room.id,
+                roomNumber: room.roomnumber,
+                roomType: room.roomtype.toLowerCase(),
+                monthlyRent: parseFloat(room.price)
+              }
+            };
+          });
+        
+        setTasks(tasksData);
+      } else {
+        setError('Failed to fetch rooms');
+        setTasks([]);
+      }
+    } catch (error) {
+      console.error('Error fetching payments:', error);
+      setError('Failed to fetch payments. Please try again.');
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMoreInfoClick = (roomNumber: string, tenantName: string, tenantId: string) => {
+    // Only open modal if there's a tenant assigned to the room
+    if (tenantId && tenantName !== 'Vacant' && tenantName !== 'No tenant assigned') {
+      setSelectedRoom({ roomNumber, tenantName, tenantId });
+      setIsPaymentHistoryModalOpen(true);
+    } else {
+      alert('This room does not have a tenant assigned yet.');
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsPaymentHistoryModalOpen(false);
+    setSelectedRoom(null);
+  };
+
+  const handleDownloadReceipt = async (paymentId: string) => {
+    try {
+      const blob = await apiService.downloadPaymentReceipt(paymentId);
+      
+      // Create a temporary URL for the blob and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payment-receipt-${paymentId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading receipt:', error);
+      alert('Failed to download receipt. Please try again.');
+    }
+  };
+
+  const handleMarkAsPaid = async (payment: Payment) => {
+    try {
+      const response = await apiService.markPaymentCompleted(payment._id);
+      if (response.success) {
+        // Refresh the payments list
+        await fetchPayments();
+        // Show success message
+        alert('Payment marked as completed successfully!');
+      } else {
+        alert('Failed to mark payment as completed');
+      }
+    } catch (error) {
+      console.error('Error marking payment as paid:', error);
+      alert('Failed to mark payment as completed. Please try again.');
+    }
+  };
+
+  if (loading) {
     return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 pl-64">
+          <TopNavbar />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading payments...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <Sidebar />
+        <div className="flex-1 flex flex-col min-w-0 pl-64">
+          <TopNavbar />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-red-600 mb-4">{error}</p>
+              <button 
+                onClick={fetchPayments}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
         <div className="flex h-screen bg-gray-50">
           <Sidebar />
           <div className="flex-1 flex flex-col min-w-0 pl-64">
@@ -265,48 +1075,81 @@ const Payment: React.FC = () =>{
 
             {/* Projects Content */}
             <main className="flex-1 p-4 lg:p-6 overflow-auto space-y-6">
+              {/* Header */}
+              <div className="mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Payment Management</h2>
+                  <p className="text-gray-600">Manage tenant payments and dues</p>
+                </div>
+              </div>
+
               <div className="flex items-center justify-between mb-6 w-full">
                 {/* ✅ Big Box Wrapper */}
                 <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm p-6">
                   
                   {/* ✅ Header Row */}
-                  <div className="grid grid-cols-4 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
-                    <span>Name</span>
+                  <div className="grid grid-cols-6 font-semibold text-gray-700 border-b pb-2 mb-4 text-center">
                     <span>Room Number</span>
-                    <span>Due Date</span>
+                    <span>Current Tenant</span>
+                    <span>Pending Amount</span>
+                    <span>Overdue Amount</span>
+                    <span>Last Payment</span>
                     <span>Actions</span>
                   </div>
 
                   {/* ✅ Task Rows */}
                   <div className="space-y-2">
-                    {SAMPLE_TASKS.map((task) => (
-                      <div
-                        key={task.id}
-                        className="grid grid-cols-4 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
-                      >
-                        {/* Name */}
-                        <span className="text-center">{task.assignee}</span>
+                    {tasks.length > 0 ? (
+                      tasks.map((task) => (
+                        <div
+                          key={task.id}
+                          className="grid grid-cols-6 items-center py-2 border-b last:border-b-0 font-semibold text-gray-800"
+                        >
+                          {/* Room Number */}
+                          <span className="text-center">Room {task.roomNumber}</span>
 
-                        {/* Room Number */}
-                        <span className="text-center">{task.roomnumber}</span>
-                        
-                        {/* Time Started */}
-                        <span className="text-center">{task.dueDate}</span>
-
-                        {/* Role */}
-                        <span className="text-center">
-                          <span className={`w-24 text-center inline-block px-2 py-1 rounded-full text-sm font-semibold ${
-                                task.status === "More Info"
-                                  ? "bg-blue-200 text-black"
-                                  : "bg-green-200 text-black"
-                              }`} 
-                          >
-                            {task.status}
+                          {/* Current Tenant */}
+                          <span className="text-center">{task.currentTenant}</span>
+                          
+                          {/* Pending Amount */}
+                          <span className="text-center">
+                            {task.pendingAmount > 0 ? (
+                              <span className="text-yellow-600 font-medium">₱{task.pendingAmount.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-gray-400">₱0</span>
+                            )}
                           </span>
-                        </span>
 
+                          {/* Overdue Amount */}
+                          <span className="text-center">
+                            {task.overdueAmount > 0 ? (
+                              <span className="text-red-600 font-medium">₱{task.overdueAmount.toLocaleString()}</span>
+                            ) : (
+                              <span className="text-gray-400">₱0</span>
+                            )}
+                          </span>
+
+                          {/* Last Payment */}
+                          <span className="text-center text-sm">{task.lastPaymentDate}</span>
+
+                          {/* Actions */}
+                          <span className="text-center">
+                            <button 
+                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                              onClick={() => handleMoreInfoClick(task.roomNumber, task.currentTenant, task.tenantId)}
+                            >
+                              View Payments
+                            </button>
+                          </span>
+
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <p className="text-lg mb-2">No rooms found</p>
+                        <p className="text-sm">No rooms with payment records available.</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               </div>
@@ -314,6 +1157,18 @@ const Payment: React.FC = () =>{
 
           </div>
         </div>
+
+        {/* Payment History Modal */}
+        {selectedRoom && (
+          <PaymentHistoryModal
+            isOpen={isPaymentHistoryModalOpen}
+            onClose={handleCloseModal}
+            roomNumber={selectedRoom.roomNumber}
+            tenantName={selectedRoom.tenantName}
+            tenantId={selectedRoom.tenantId}
+          />
+        )}
+
       </div>
     );
 };
